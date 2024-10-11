@@ -275,20 +275,20 @@ async fn main() -> anyhow::Result<()> {
             &config.raydium_cp.mints
         ),
         dex::generic::build_dex!(
+            dex_gobbler::GobblerDex::initialize(&mut router_rpc, HashMap::new()).await?,
+            &mango_data,
+            config.gobbler.enabled,
+            config.gobbler.add_mango_tokens,
+            config.gobbler.take_all_mints,
+            &config.gobbler.mints
+        ),
+        dex::generic::build_dex!(
             dex_raydium::RaydiumDex::initialize(&mut router_rpc, HashMap::new()).await?,
             &mango_data,
             config.raydium.enabled,
             config.raydium.add_mango_tokens,
             config.raydium.take_all_mints,
             &config.raydium.mints
-        ),
-        dex::generic::build_dex!(
-            dex_openbook_v2::OpenbookV2Dex::initialize(&mut router_rpc, HashMap::new()).await?,
-            &mango_data,
-            config.openbook_v2.enabled,
-            config.openbook_v2.add_mango_tokens,
-            config.openbook_v2.take_all_mints,
-            &config.openbook_v2.mints
         ),
         dex::generic::build_dex!(
             dex_infinity::InfinityDex::initialize(&mut router_rpc, HashMap::new()).await?,

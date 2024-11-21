@@ -54,17 +54,7 @@ async fn feed_tx_geyser(
     }
     .connect()
     .await?;
-    let token: Option<MetadataValue<_>> = match &grpc_config.token {
-        Some(token) => match token.chars().next().unwrap() {
-            '$' => Some(
-                env::var(&token[1..])
-                    .expect("reading token from env")
-                    .parse()?,
-            ),
-            _ => Some(token.clone().parse()?),
-        },
-        None => None,
-    };
+    let token: Option<MetadataValue<_>> = None;
     let mut client = GeyserClient::with_interceptor(channel, move |mut req: Request<()>| {
         if let Some(token) = &token {
             req.metadata_mut().insert("x-token", token.clone());

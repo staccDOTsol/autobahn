@@ -59,7 +59,7 @@ pub async fn get_snapshot_gta(
 
     let token_program = Pubkey::from_str("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA").unwrap();
     let result =
-        get_compressed_program_account_rpc(&rpc_client, &HashSet::from([token_program]), config)
+        get_uncompressed_program_account_rpc(&rpc_client, &HashSet::from([token_program]), config)
             .await?;
 
     Ok(CustomSnapshotProgramAccounts {
@@ -78,9 +78,9 @@ pub async fn get_snapshot_gpa(
     use_compression: bool,
 ) -> anyhow::Result<CustomSnapshotProgramAccounts> {
     let result = if use_compression {
-        get_compressed_program_account(rpc_http_url, &[*program_id].into_iter().collect()).await?
+        get_uncompressed_program_account(rpc_http_url, &[*program_id].into_iter().collect()).await?
     } else {
-        get_uncompressed_program_account(rpc_http_url, program_id.to_string()).await?
+        get_uncompressed_program_account(rpc_http_url, &[*program_id].into_iter().collect()).await?
     };
 
     Ok(CustomSnapshotProgramAccounts {
@@ -110,7 +110,7 @@ pub struct RpcKeyedCompressedAccount {
 
 // called on startup to get the required accounts, few calls with some 100 thousand accounts
 #[tracing::instrument(skip_all, level = "trace")]
-pub async fn get_compressed_program_account(
+pub async fn get_uncompressed_program_account(
     rpc_url: &str,
     filters: &HashSet<Pubkey>,
 ) -> anyhow::Result<(u64, Vec<AccountWrite>)> {
@@ -126,7 +126,7 @@ pub async fn get_compressed_program_account(
         ..Default::default()
     };
 
-    get_compressed_program_account_rpc(&rpc_client, filters, config).await
+    get_uncompressed_program_account_rpc(&rpc_client, filters, config).await
 }
 
 // called on startup to get the required accounts, few calls with some 100 thousand accounts
@@ -248,7 +248,7 @@ pub async fn get_uncompressed_program_account_rpc(
 
 // called on startup to get the required accounts, few calls with some 100 thousand accounts
 #[tracing::instrument(skip_all, level = "trace")]
-pub async fn get_uncompressed_program_account(
+pub async fn get_compressed_program_account(
     rpc_url: &str,
     program_id: String,
 ) -> anyhow::Result<(u64, Vec<AccountWrite>)> {

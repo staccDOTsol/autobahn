@@ -43,7 +43,7 @@ pub async fn request_mint_metadata(
         .unwrap();
     let rpc_client = Arc::new(rpc_client);
     let account_info_config = RpcAccountInfoConfig {
-        encoding: Some(UiAccountEncoding::Binary),
+        encoding: Some(UiAccountEncoding::Base64),
         commitment: Some(CommitmentConfig::finalized()),
         data_slice: None,
         min_context_slot: None,
@@ -72,7 +72,8 @@ pub async fn request_mint_metadata(
                 if let Some(ui_account) = ui_account {
                     let mut account: Account = ui_account.decode().unwrap();
                     let data = account.data.as_mut_slice();
-                    let mint_account = Mint::try_deserialize(&mut &*data).unwrap();
+                    let mint_account = Mint::try_deserialize(&mut &*data);
+                    if let Ok(mint_account) = mint_account {
                     trace!(
                         "Mint Account {}: decimals={}",
                         account_pk.to_string(),
@@ -84,7 +85,8 @@ pub async fn request_mint_metadata(
                             mint: account_pk,
                             decimals: mint_account.decimals,
                         },
-                    );
+                        );
+                    }
                     count.fetch_add(1, Ordering::Relaxed);
                 }
             }
@@ -99,8 +101,6 @@ pub async fn request_mint_metadata(
         let map = map.expect("thread must succeed");
         merged.extend(map);
     }
-
-    assert_eq!(merged.len() as u64, count.load(Ordering::Relaxed));
 
     info!(
         "Received {} mint accounts via gMA in {:?}ms",

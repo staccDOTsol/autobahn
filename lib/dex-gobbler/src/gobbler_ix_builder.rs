@@ -1,9 +1,9 @@
 use crate::edge::GobblerEdgeIdentifier;
 use anchor_lang::{AccountDeserialize, Id, InstructionData, ToAccountMetas};
 use anchor_spl::associated_token::get_associated_token_address;
-use raydium_cp_swap::program::RaydiumCpSwap;
-use raydium_cp_swap::states::PoolState;
-use raydium_cp_swap::AUTH_SEED;
+use gobblerdev::program::Gobbler;
+use gobblerdev::states::PoolState;
+use gobblerdev::AUTH_SEED;
 use router_lib::dex::{AccountProviderView, SwapInstruction};
 use solana_program::instruction::Instruction;
 use solana_program::pubkey::Pubkey;
@@ -64,14 +64,14 @@ pub fn build_swap_ix(
         get_associated_token_address(wallet_pk, &output_token_mint),
     );
 
-    let instruction = raydium_cp_swap::instruction::SwapBaseInput {
+    let instruction = gobblerdev::instruction::SwapBaseInput {
         amount_in: amount,
         minimum_amount_out: other_amount_threshold,
     };
     let (authority, __bump) =
-        Pubkey::find_program_address(&[AUTH_SEED.as_bytes()], &raydium_cp_swap::id());
+        Pubkey::find_program_address(&[AUTH_SEED.as_bytes()], &gobblerdev::id());
 
-    let accounts = raydium_cp_swap::accounts::Swap {
+    let accounts = gobblerdev::accounts::Swap {
         payer: *wallet_pk,
         authority,
         amm_config: pool.amm_config,
@@ -89,7 +89,7 @@ pub fn build_swap_ix(
 
     let result = SwapInstruction {
         instruction: Instruction {
-            program_id: raydium_cp_swap::id(),
+            program_id: gobblerdev::id(),
             accounts: accounts.to_account_metas(None),
             data: instruction.data(),
         },

@@ -7,8 +7,8 @@ use anchor_spl::token_2022::spl_token_2022::extension::{
 use anyhow::anyhow;
 use anchor_spl::token_2022::spl_token_2022::state::Mint;
 use mango_feeds_connector::chain_data::AccountData;
-use raydium_cp_swap::curve::{CurveCalculator, TradeDirection};
-use raydium_cp_swap::states::{AmmConfig, PoolState, PoolStatusBitIndex};
+use gobblerdev::curve::{CurveCalculator, TradeDirection};
+use gobblerdev::states::{AmmConfig, PoolState, PoolStatusBitIndex};
 use solana_program::clock::Clock;
 use solana_program::pubkey::Pubkey;
 use solana_program::sysvar::Sysvar;
@@ -100,24 +100,21 @@ pub fn swap_base_input(
         (inp, out)
     };
 
-    let (input_token_creator_rate, input_token_lp_rate) = if input_vault_key == pool.token_0_vault {
-        (amm_config.token_0_creator_rate, amm_config.token_0_lp_rate)
-    } else {
-        (amm_config.token_1_creator_rate, amm_config.token_1_lp_rate)
-    };
+        let (input_token_creator_rate, input_token_lp_rate) = if input_vault_key == pool.token_0_vault {
+            (amm_config.creator_fee, amm_config.token_0_lp_rate)
+        } else {
+            (amm_config.creator_fee, amm_config.token_1_lp_rate)
+        };
 
-    let protocol_fee = (amm_config.token_0_creator_rate 
-        + amm_config.token_1_creator_rate
-        + amm_config.token_0_lp_rate 
-        + amm_config.token_1_lp_rate) / 10000;
+    let protocol_fee = amm_config.protocol_fee;
 
     let swap_result = CurveCalculator::swap_base_input(
         amount_in.into(),
         total_input_token_amount.into(),
         total_output_token_amount.into(),
-        protocol_fee + input_token_creator_rate + input_token_lp_rate,
+        (protocol_fee + input_token_creator_rate + input_token_lp_rate) as u128,
+        protocol_fee,
         input_token_creator_rate,
-        input_token_lp_rate,
     ).ok_or_else(|| anyhow!("Swap calculation failed"))?;
 
     let amount_received = swap_result.destination_amount_swapped;
@@ -149,23 +146,19 @@ pub fn swap_base_output(
     };
 
     let (input_token_creator_rate, input_token_lp_rate) = if input_vault_key == pool.token_0_vault {
-        (amm_config.token_0_creator_rate, amm_config.token_0_lp_rate)
+        (amm_config.creator_fee, amm_config.token_0_lp_rate)
     } else {
-        (amm_config.token_1_creator_rate, amm_config.token_1_lp_rate)
+        (amm_config.creator_fee, amm_config.token_1_lp_rate)
     };
 
-    let protocol_fee = (amm_config.token_0_creator_rate 
-        + amm_config.token_1_creator_rate
-        + amm_config.token_0_lp_rate 
-        + amm_config.token_1_lp_rate) / 10000;
-
+    let protocol_fee = amm_config.protocol_fee;
     let swap_result = CurveCalculator::swap_base_output(
         amount_out.into(),
         total_input_token_amount.into(),
         total_output_token_amount.into(),
-        protocol_fee + input_token_creator_rate + input_token_lp_rate,
+        (protocol_fee + input_token_creator_rate + input_token_lp_rate) as u128,
+        protocol_fee,
         input_token_creator_rate,
-        input_token_lp_rate,
     ).ok_or_else(|| anyhow!("Swap calculation failed"))?;
 
     Ok((

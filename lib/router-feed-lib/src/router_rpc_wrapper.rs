@@ -10,8 +10,7 @@ use solana_sdk::pubkey::Pubkey;
 
 use crate::account_write::AccountWrite;
 use crate::get_program_account::{
-    fetch_multiple_accounts, get_compressed_program_account_rpc,
-    get_uncompressed_program_account_rpc,
+    fetch_multiple_accounts, get_uncompressed_program_account_rpc,
 };
 use crate::router_rpc_client::RouterRpcClientTrait;
 
@@ -66,7 +65,7 @@ impl RouterRpcClientTrait for RouterRpcWrapper {
             )
         } else {
             Ok(
-                get_compressed_program_account_rpc(&self.rpc, &HashSet::from([*pubkey]), config)
+                get_uncompressed_program_account_rpc(&self.rpc, &HashSet::from([*pubkey]), config)
                     .await?
                     .1,
             )

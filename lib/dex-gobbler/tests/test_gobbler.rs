@@ -37,7 +37,7 @@ async fn raydium_cp_step_2(options: &HashMap<String, String>) -> anyhow::Result<
 
     let dex = dex_gobbler::GobblerDex::initialize(&mut rpc_client, options.clone()).await?;
 
-    generate_dex_rpc_dump::run_dump_swap_ix("raydium_cp_swap.lz4", dex, chain_data).await?;
+    generate_dex_rpc_dump::run_dump_swap_ix("gobblerdev.lz4", dex, chain_data).await?;
 
     Ok(())
 }

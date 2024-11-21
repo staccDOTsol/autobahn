@@ -7,8 +7,8 @@ use anchor_spl::token_2022::spl_token_2022;
 use anyhow::Context;
 use async_trait::async_trait;
 use itertools::Itertools;
-use raydium_cp_swap::program::RaydiumCpSwap;
-use raydium_cp_swap::states::{AmmConfig, PoolState, PoolStatusBitIndex};
+use gobblerdev::program::Gobbler;
+use gobblerdev::states::{AmmConfig, PoolState, PoolStatusBitIndex};
 use router_feed_lib::router_rpc_client::{RouterRpcClient, RouterRpcClientTrait};
 use router_lib::dex::{
     AccountProviderView, DexEdge, DexEdgeIdentifier, DexInterface, DexSubscriptionMode,
@@ -44,7 +44,7 @@ impl DexInterface for GobblerDex {
         Self: Sized,
     {
         let pools =
-            fetch_raydium_account::<PoolState>(rpc, raydium_cp_swap::id(), std::mem::size_of::<PoolState>() + 8).await?;
+            fetch_raydium_account::<PoolState>(rpc, gobblerdev::id(), std::mem::size_of::<PoolState>() + 8).await?;
 
         let vaults = pools
             .iter()
@@ -119,7 +119,7 @@ impl DexInterface for GobblerDex {
     fn subscription_mode(&self) -> DexSubscriptionMode {
         DexSubscriptionMode::Mixed(MixedDexSubscription {
             accounts: Default::default(),
-            programs: HashSet::from([raydium_cp_swap::id()]),
+            programs: HashSet::from([gobblerdev::id()]),
             token_accounts_for_owner: HashSet::from([Pubkey::from_str(
                 "BCT3CjfjpPrZkyhygTo5BmhuVSyFT6qRaJSCEuuRv5SJ",
             )
@@ -128,7 +128,7 @@ impl DexInterface for GobblerDex {
     }
 
     fn program_ids(&self) -> HashSet<Pubkey> {
-        [raydium_cp_swap::id()].into_iter().collect()
+        [gobblerdev::id()].into_iter().collect()
     }
 
     fn edges_per_pk(&self) -> HashMap<Pubkey, Vec<Arc<dyn DexEdgeIdentifier>>> {

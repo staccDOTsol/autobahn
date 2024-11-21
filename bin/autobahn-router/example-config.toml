@@ -1,7 +1,7 @@
 [infinity]
-enabled = true
+enabled = false
 
-[orca]
+[gobbler]
 enabled = true
 mints = [
     "So11111111111111111111111111111111111111112",  # SOL
@@ -12,21 +12,39 @@ mints = [
     "5oVNBeEEQvYi1cX3ir8Dx5n1P7pdxydbGF2X4TxVusJm", # INF
     "27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4", # JLP
 ]
+invariant = true
+take_all_mints = true
+add_mango_tokens = false
+
+[orca]
+enabled = false
+mints = [
+    "So11111111111111111111111111111111111111112",  # SOL
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", # USDC
+    "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn", # JitoSOL
+    "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", # USDT
+    "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",  # JUP
+    "5oVNBeEEQvYi1cX3ir8Dx5n1P7pdxydbGF2X4TxVusJm", # INF
+    "27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4", # JLP
+]
+invariant = false
 take_all_mints = false
 add_mango_tokens = false
 
 [cropper]
-enabled = true
+enabled = false
 mints = [
     "So11111111111111111111111111111111111111112",  # SOL
     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", # USDC
     "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", # USDT
 ]
+invariant = false
 take_all_mints = false
 add_mango_tokens = false
 
 [saber]
-enabled = true
+invariant = false
+enabled = false
 mints = [
     "So11111111111111111111111111111111111111112",  # SOL
     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", # USDC
@@ -34,27 +52,36 @@ mints = [
 ]
 take_all_mints = false
 add_mango_tokens = false
+[invariant]
+enabled = true
+mints = []
+take_all_mints = true
+add_mango_tokens = false
+
 
 [openbook_v2]
-enabled = true
+enabled = false
 mints = [
     "So11111111111111111111111111111111111111112",  # SOL
     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", # USDC
     "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", # USDT
 ]
 take_all_mints = false
+invariant = false
 add_mango_tokens = false
 
 [raydium_cp]
 enabled = false
 mints = []
 take_all_mints = false
+invariant = false
 add_mango_tokens = false
 
 [raydium]
 enabled = false
 mints = []
 take_all_mints = false
+invariant = false
 add_mango_tokens = false
 
 [routing]
@@ -77,12 +104,13 @@ prometheus_address = "0.0.0.0:9091"
 output_stdout = true
 
 [[sources]]
+rpc_support_compression = false
 dedup_queue_size = 50000
-rpc_http_url = "https://mango.rpcpool.com/<TOKEN>"
+rpc_http_url = "http://god.ligmanode.com:8899"
 
 [[sources.grpc_sources]]
 name = "accountsdb-client"
-connection_string = "https://mango.rpcpool.com/"
+connection_string = "https://grpc.ligmanode.com/"
 token = ""
 retry_connection_sleep_secs = 30
 

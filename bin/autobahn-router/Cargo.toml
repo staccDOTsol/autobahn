@@ -14,6 +14,7 @@ capture-accounts = []
 [lib]
 
 [dependencies]
+adapter-registry = { path = "../../lib/adapter-registry" }
 anchor-lang = "0.29.0"
 anchor-client = "0.29.0"
 anchor-spl = "0.29.0"
@@ -38,7 +39,7 @@ futures-util = "0.3"
 itertools = "0.12"
 jemallocator = "0.5"
 jsonrpc-core = "18.0.0"
-jsonrpc-core-client = { version = "18.0.0", features = ["ws", "http", "tls"] }
+jsonrpc-core-client = { version = "18.0.0", features = ["http", "tls"] }
 # mango-v4 = { path = "../../programs/mango-v4", features = ["client"] }
 # mango-v4-client = { path = "../../lib/client" }
 mango-feeds-connector = { workspace = true }

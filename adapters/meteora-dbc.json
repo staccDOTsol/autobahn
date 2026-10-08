@@ -1,0 +1,12 @@
+{
+  "id": "meteora-dbc",
+  "crate": "dex-meteora-dbc",
+  "type": "MeteoraDbcDex",
+  "operations": ["swap"],
+  "requiresConfiguration": false,
+  "provenance": {
+    "source": "MeteoraAg/dynamic-bonding-curve-sdk (MIT); QuoteFun direct DBC SDK integration",
+    "revision": "@meteora-ag/dynamic-bonding-curve-sdk@1.5.12",
+    "license": "AGPL-3.0-only; SDK MIT"
+  }
+}

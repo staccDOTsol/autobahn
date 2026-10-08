@@ -12,7 +12,8 @@ pub struct QuoteResponse {
     pub swap_mode: String,
     pub slippage_bps: i32,
     pub platform_fee: Option<PlatformFee>,
-    pub price_impact_pct: String,
+    /// Estimated execution-price deterioration; null when no meaningful reference quote exists.
+    pub price_impact_pct: Option<String>,
     pub route_plan: Vec<RoutePlan>,
     pub accounts: Option<Vec<QuoteAccount>>,
     pub context_slot: u64,

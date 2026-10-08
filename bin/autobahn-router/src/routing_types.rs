@@ -25,7 +25,7 @@ pub struct Route {
     pub output_mint: Pubkey,
     pub in_amount: u64,
     pub out_amount: u64,
-    pub price_impact_bps: u64,
+    pub price_impact_bps: Option<i64>,
     // TODO: allow for multiple paths
     pub steps: Vec<RouteStep>,
     pub slot: u64,

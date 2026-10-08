@@ -11,6 +11,7 @@ use solana_program::program_pack::Pack;
 use solana_program::program_stubs::{set_syscall_stubs, SyscallStubs};
 use solana_program::pubkey::Pubkey;
 use solana_program::sysvar::SysvarId;
+use solana_program::{program_option::COption, rent::Rent};
 use solana_sdk::account::{Account, AccountSharedData, ReadableAccount};
 use solana_sdk::bpf_loader_upgradeable::UpgradeableLoaderState;
 use solana_sdk::message::{Message, VersionedMessage};
@@ -21,6 +22,10 @@ use spl_associated_token_account::{
     get_associated_token_address, get_associated_token_address_with_program_id,
 };
 use spl_token::state::AccountState;
+use spl_token_2022::extension::{
+    immutable_owner::ImmutableOwner, transfer_fee::TransferFeeAmount, BaseStateWithExtensions,
+    ExtensionType, StateWithExtensions, StateWithExtensionsMut,
+};
 use spl_token_2022::state::AccountState as AccountState2022;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -77,8 +82,18 @@ async fn test_quote_match_swap_for_invariant() -> anyhow::Result<()> {
     run_all_swap_from_dump("invariant_swap.lz4").await?
 }
 
+#[tokio::test]
+async fn test_admission_replay() -> anyhow::Result<()> {
+    anyhow::ensure!(
+        std::env::var_os("ADMISSION_STRICT").is_some(),
+        "admission must run with strict replay enabled"
+    );
+    run_all_swap_from_dump("admission_swap.lz4").await??;
+    Ok(())
+}
+
 async fn run_all_swap_from_dump(dump_name: &str) -> Result<Result<(), Error>, Error> {
-    tracing_subscriber::fmt::init();
+    let _ = tracing_subscriber::fmt::try_init();
 
     let mut skip_count = option_env!("SKIP_COUNT")
         .map(|x| u32::from_str(x).unwrap_or(0))
@@ -97,9 +112,27 @@ async fn run_all_swap_from_dump(dump_name: &str) -> Result<Result<(), Error>, Er
 
     set_syscall_stubs(Box::new(TestLogSyscallStubs {}));
 
-    let data = serialize::deserialize_from_file::<execution_dump::ExecutionDump>(
-        &format!("tests/fixtures/{}", dump_name).to_string(),
-    )?;
+    let strict = std::env::var_os("ADMISSION_STRICT").is_some();
+    let path = if strict {
+        std::env::var("ADMISSION_REPLAY_PATH")?
+    } else {
+        format!("tests/fixtures/{}", dump_name)
+    };
+    let mut data = serialize::deserialize_from_file::<execution_dump::ExecutionDump>(&path)?;
+    if strict {
+        apply_recorded_mainnet_state(&mut data)?;
+        anyhow::ensure!(
+            !data.cache.is_empty() && data.cache.len() <= 4096,
+            "expected bounded nonempty execution evidence"
+        );
+        anyhow::ensure!(
+            data.cache.iter().all(|q| !q.is_exact_out
+                && q.input_amount > 0
+                && q.output_amount > 0
+                && q.input_amount <= u64::MAX / 2),
+            "invalid replay amounts/mode"
+        );
+    }
     let wallet = Keypair::from_base58_string(data.wallet_keypair.as_str());
 
     let mut success = 0;
@@ -260,7 +293,10 @@ async fn run_all_swap_from_dump(dump_name: &str) -> Result<Result<(), Error>, Er
             assert!(quote.input_amount >= sent_in_amount);
             assert!(quote.output_amount <= received_out_amount);
         } else {
-            assert!(quote.input_amount >= sent_in_amount);
+            assert_eq!(
+                quote.input_amount, sent_in_amount,
+                "ExactIn must consume precisely the quoted input"
+            );
             assert_eq!(quote.output_amount, received_out_amount);
         }
 
@@ -298,6 +334,7 @@ async fn run_all_swap_from_dump(dump_name: &str) -> Result<Result<(), Error>, Er
         );
     }
 
+    anyhow::ensure!(success > 0, "Empty replay is not a passing admission");
     info!("Successfully ran {} swaps", success);
 
     Ok(Ok(()))
@@ -373,6 +410,9 @@ fn reinitialize_accounts(
     log::debug!("reinitializing accounts : {:?}", accounts_list.len());
     for pk in accounts_list {
         let Some(account) = dump.accounts.get(&pk) else {
+            if dump.missing_accounts.contains(pk) {
+                program_test.set_account(*pk, Account::default())?;
+            }
             continue;
         };
         log::debug!(
@@ -530,16 +570,13 @@ async fn get_balance(
     };
 
     if is_2022 {
-        let ata = spl_token_2022::state::Account::unpack(&ata.data);
-        if let Ok(ata) = ata {
-            return Ok(ata.amount);
-        }
-    };
-
-    if let Ok(ata) = spl_token::state::Account::unpack(&ata.data) {
-        Ok(ata.amount)
+        Ok(
+            StateWithExtensions::<spl_token_2022::state::Account>::unpack(&ata.data)?
+                .base
+                .amount,
+        )
     } else {
-        Ok(0u64)
+        Ok(spl_token::state::Account::unpack(&ata.data)?.amount)
     }
 }
 
@@ -558,47 +595,113 @@ fn set_balance(
 
     let ata_address =
         get_associated_token_address_with_program_id(&owner, &mint, &token_program_id);
-    let mut data = vec![0u8; 165];
-
-    if is_2022 {
-        // TODO: to properly setup extensions, this is not sufficient
-        let account = spl_token_2022::state::Account {
-            mint,
-            owner,
-            amount,
-            delegate: Default::default(),
-            state: AccountState2022::Initialized,
-            is_native: Default::default(),
-            delegated_amount: 0,
-            close_authority: Default::default(),
-        };
-        account.pack_into_slice(data.as_mut_slice());
-    } else {
-        let account = spl_token::state::Account {
-            mint,
-            owner,
-            amount,
-            delegate: Default::default(),
-            state: AccountState::Initialized,
-            is_native: Default::default(),
-            delegated_amount: 0,
-            close_authority: Default::default(),
-        };
-        account.pack_into_slice(data.as_mut_slice());
-    };
-
-    ctx.set_account(
-        ata_address,
-        Account {
-            lamports: 1_000_000_000,
-            data: data,
-            owner: token_program_id,
-            executable: false,
-            rent_epoch: u64::MAX,
-        },
+    let mint_account = ctx
+        .get_account(&mint)
+        .ok_or_else(|| anyhow::anyhow!("missing replay mint"))?;
+    anyhow::ensure!(
+        mint_account.owner == token_program_id,
+        "replay mint owner mismatch"
+    );
+    let account = funded_wallet_token_account(
+        &mint_account,
+        mint,
+        owner,
+        amount,
+        &ctx.get_sysvar::<Rent>(),
     )?;
+    ctx.set_account(ata_address, account)?;
 
     Ok(())
+}
+
+fn funded_wallet_token_account(
+    mint_account: &Account,
+    mint: Pubkey,
+    owner: Pubkey,
+    amount: u64,
+    rent: &Rent,
+) -> anyhow::Result<Account> {
+    let token2022 = mint_account.owner == spl_token_2022::ID;
+    anyhow::ensure!(
+        token2022 || mint_account.owner == spl_token::ID,
+        "unsupported replay mint owner"
+    );
+    let native = (!token2022 && mint == spl_token::native_mint::ID)
+        || (token2022 && mint == spl_token_2022::native_mint::ID);
+    let mut extensions = vec![];
+    if token2022 {
+        let mint_state =
+            StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_account.data)?;
+        let mint_extensions = mint_state.get_extension_types()?;
+        anyhow::ensure!(
+            mint_extensions.iter().all(|extension| matches!(
+                extension,
+                ExtensionType::TransferFeeConfig
+                    | ExtensionType::MetadataPointer
+                    | ExtensionType::TokenMetadata
+            )),
+            "unsupported Token-2022 mint extension in admission wallet setup"
+        );
+        extensions = ExtensionType::get_required_init_account_extensions(&mint_extensions);
+        extensions.push(ExtensionType::ImmutableOwner);
+    } else {
+        spl_token::state::Mint::unpack(&mint_account.data)?;
+    }
+    let length = if token2022 {
+        ExtensionType::try_calculate_account_len::<spl_token_2022::state::Account>(&extensions)?
+    } else {
+        spl_token::state::Account::LEN
+    };
+    let reserve = rent.minimum_balance(length);
+    let native_reserve = if native {
+        COption::Some(reserve)
+    } else {
+        COption::None
+    };
+    let mut data = vec![0; length];
+    if token2022 {
+        let mut state =
+            StateWithExtensionsMut::<spl_token_2022::state::Account>::unpack_uninitialized(
+                &mut data,
+            )?;
+        state.init_extension::<ImmutableOwner>(true)?;
+        if extensions.contains(&ExtensionType::TransferFeeAmount) {
+            state.init_extension::<TransferFeeAmount>(true)?;
+        }
+        state.base = spl_token_2022::state::Account {
+            mint,
+            owner,
+            amount,
+            delegate: COption::None,
+            state: AccountState2022::Initialized,
+            is_native: native_reserve,
+            delegated_amount: 0,
+            close_authority: COption::None,
+        };
+        state.pack_base();
+        state.init_account_type()?;
+    } else {
+        spl_token::state::Account {
+            mint,
+            owner,
+            amount,
+            delegate: COption::None,
+            state: AccountState::Initialized,
+            is_native: native_reserve,
+            delegated_amount: 0,
+            close_authority: COption::None,
+        }
+        .pack_into_slice(&mut data);
+    }
+    Ok(Account {
+        lamports: reserve
+            .checked_add(if native { amount } else { 0 })
+            .ok_or_else(|| anyhow::anyhow!("native backing overflow"))?,
+        data,
+        owner: mint_account.owner,
+        executable: false,
+        rent_epoch: u64::MAX,
+    })
 }
 
 fn create_wallet(ctx: &mut LiteSVM, address: Pubkey) {
@@ -636,9 +739,13 @@ fn setup_test_chain(clock: &Clock, dump: &ExecutionDump) -> anyhow::Result<LiteS
 
     initialize_accounts(&mut program_test, dump)?;
 
-    let path = find_file(format!("autobahn_executor.so").as_str()).unwrap();
-    log::debug!("Adding program: {:?} at {path:?}", autobahn_executor::ID);
-    program_test.add_program_from_file(autobahn_executor::ID, path)?;
+    // Adapter admission executes the actual venue instruction from captured mainnet
+    // bytecode. It does not load a candidate-supplied executor shared object.
+    if std::env::var_os("ADMISSION_STRICT").is_none() {
+        let path = find_file("autobahn_executor.so")
+            .ok_or_else(|| anyhow::anyhow!("missing executor SBF fixture"))?;
+        program_test.add_program_from_file(autobahn_executor::ID, path)?;
+    }
 
     // TODO: make this dynamic based on routes
     let mut cb = solana_program_runtime::compute_budget::ComputeBudget::default();
@@ -646,4 +753,404 @@ fn setup_test_chain(clock: &Clock, dump: &ExecutionDump) -> anyhow::Result<LiteS
     program_test.set_compute_budget(cb);
 
     Ok(program_test)
+}
+
+// This file is compiled from the trusted default branch BEFORE candidate code runs.
+// The recorder lives in another container and only it can write this snapshot.
+// Discard ALL candidate account bytes, including sysvars and program bytecode.
+fn apply_recorded_mainnet_state(dump: &mut ExecutionDump) -> anyhow::Result<()> {
+    let path = std::env::var("ADMISSION_CANONICAL_PATH")?;
+    let bytes = std::fs::read(path)?;
+    anyhow::ensure!(
+        bytes.len() <= 512 * 1024 * 1024,
+        "oversized recorder snapshot"
+    );
+    let snapshot: serde_json::Value = serde_json::from_slice(&bytes)?;
+    let expected_amount: u64 = std::env::var("ADMISSION_AMOUNT")?.parse()?;
+    canonicalize_dump(dump, &snapshot, expected_amount)
+}
+
+fn canonicalize_dump(
+    dump: &mut ExecutionDump,
+    snapshot: &serde_json::Value,
+    expected_amount: u64,
+) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        snapshot["version"].as_u64() == Some(1)
+            && snapshot["failed"].as_bool() == Some(false)
+            && snapshot["complete"].as_bool() == Some(true),
+        "recorder failed or unsupported snapshot"
+    );
+    let records = snapshot["accounts"]
+        .as_object()
+        .ok_or_else(|| anyhow::anyhow!("missing canonical accounts"))?;
+    anyhow::ensure!(
+        !records.is_empty() && records.len() <= 50_000,
+        "invalid canonical account count"
+    );
+    anyhow::ensure!(
+        expected_amount > 0 && expected_amount <= u64::MAX / 2,
+        "invalid trusted admission amount"
+    );
+    let mut accounts = HashMap::new();
+    let mut recorded_keys = std::collections::HashSet::new();
+    for (address, record) in records {
+        recorded_keys.insert(address.parse::<Pubkey>()?);
+        anyhow::ensure!(
+            record["slot"].as_u64().unwrap_or(0) > 0,
+            "missing canonical slot"
+        );
+        let account = &record["account"];
+        if account.is_null() {
+            continue;
+        }
+        anyhow::ensure!(
+            account["data"][1].as_str() == Some("base64"),
+            "invalid account encoding"
+        );
+        let data = base64::decode(
+            account["data"][0]
+                .as_str()
+                .ok_or_else(|| anyhow::anyhow!("missing canonical bytes"))?,
+        )?;
+        let account = Account {
+            lamports: account["lamports"]
+                .as_u64()
+                .ok_or_else(|| anyhow::anyhow!("missing lamports"))?,
+            owner: account["owner"]
+                .as_str()
+                .ok_or_else(|| anyhow::anyhow!("missing owner"))?
+                .parse()?,
+            executable: account["executable"]
+                .as_bool()
+                .ok_or_else(|| anyhow::anyhow!("missing executable flag"))?,
+            rent_epoch: account["rentEpoch"]
+                .as_u64()
+                .ok_or_else(|| anyhow::anyhow!("missing rent epoch"))?,
+            data,
+        };
+        accounts.insert(address.parse::<Pubkey>()?, AccountSharedData::from(account));
+    }
+    anyhow::ensure!(!dump.programs.is_empty(), "missing program set");
+    for program in &dump.programs {
+        let account = accounts
+            .get(program)
+            .ok_or_else(|| anyhow::anyhow!("program not recorded from mainnet: {program}"))?;
+        anyhow::ensure!(account.executable(), "not executable: {program}");
+        if *account.owner() == solana_sdk::bpf_loader_upgradeable::ID {
+            match bincode::deserialize::<UpgradeableLoaderState>(account.data())? {
+                UpgradeableLoaderState::Program {
+                    programdata_address,
+                } => {
+                    let code = accounts
+                        .get(&programdata_address)
+                        .ok_or_else(|| anyhow::anyhow!("missing canonical program data"))?;
+                    anyhow::ensure!(
+                        *code.owner() == solana_sdk::bpf_loader_upgradeable::ID,
+                        "invalid program data owner"
+                    );
+                    anyhow::ensure!(
+                        matches!(
+                            bincode::deserialize::<UpgradeableLoaderState>(code.data())?,
+                            UpgradeableLoaderState::ProgramData { .. }
+                        ) && code.data().len()
+                            > UpgradeableLoaderState::size_of_programdata_metadata(),
+                        "missing canonical executable bytes"
+                    );
+                }
+                _ => anyhow::bail!("invalid program state"),
+            }
+        }
+    }
+    let wallet = Keypair::from_base58_string(&dump.wallet_keypair).pubkey();
+    for item in &dump.cache {
+        let instruction = deserialize_instruction(&item.instruction)?;
+        anyhow::ensure!(
+            dump.programs.contains(&instruction.program_id),
+            "instruction uses undeclared program"
+        );
+        anyhow::ensure!(
+            accounts.contains_key(&item.input_mint) && accounts.contains_key(&item.output_mint),
+            "mint missing from recorder"
+        );
+        anyhow::ensure!(
+            item.input_mint != item.output_mint,
+            "same-mint evidence does not prove a swap"
+        );
+        anyhow::ensure!(
+            item.input_amount == expected_amount && item.output_amount > 0 && !item.is_exact_out,
+            "replay does not exercise the trusted requested input amount/mode"
+        );
+        let mint_program = |mint: &Pubkey| -> anyhow::Result<Pubkey> {
+            let owner = *accounts.get(mint).unwrap().owner();
+            anyhow::ensure!(
+                owner == spl_token::ID || owner == spl_token_2022::ID,
+                "unsupported canonical mint owner"
+            );
+            Ok(owner)
+        };
+        let input_ata = get_associated_token_address_with_program_id(
+            &wallet,
+            &item.input_mint,
+            &mint_program(&item.input_mint)?,
+        );
+        let output_ata = get_associated_token_address_with_program_id(
+            &wallet,
+            &item.output_mint,
+            &mint_program(&item.output_mint)?,
+        );
+        for meta in &instruction.accounts {
+            anyhow::ensure!(
+                !meta.is_signer || meta.pubkey == wallet,
+                "unexpected replay signer"
+            );
+            anyhow::ensure!(
+                recorded_keys.contains(&meta.pubkey)
+                    || meta.pubkey == wallet
+                    || meta.pubkey == input_ata
+                    || meta.pubkey == output_ata
+                    || replay_builtin(&meta.pubkey),
+                "instruction account was never recorded: {}",
+                meta.pubkey
+            );
+        }
+    }
+    dump.accounts = accounts;
+    dump.missing_accounts = recorded_keys
+        .into_iter()
+        .filter(|key| !dump.accounts.contains_key(key))
+        .collect();
+    Ok(())
+}
+
+fn replay_builtin(key: &Pubkey) -> bool {
+    // Only addresses the trusted runtime constructs itself may bypass recording.
+    // All venue accounts, PDAs and nonbuiltin programs need a recorded value,
+    // including an explicit null for accounts the instruction creates on-chain.
+    [
+        solana_sdk::system_program::ID,
+        solana_sdk::stake::program::ID,
+        spl_token::ID,
+        spl_token_2022::ID,
+        spl_associated_token_account::ID,
+        solana_sdk::sysvar::instructions::ID,
+        solana_sdk::sysvar::rent::ID,
+        solana_sdk::sysvar::clock::ID,
+        solana_sdk::sysvar::stake_history::ID,
+        solana_sdk::sysvar::epoch_schedule::ID,
+    ]
+    .contains(key)
+}
+
+#[cfg(test)]
+mod admission_validation_tests {
+    use super::*;
+    use solana_program::instruction::AccountMeta;
+    use spl_token_2022::extension::{transfer_fee::TransferFeeConfig, transfer_hook::TransferHook};
+
+    fn mint(token2022: bool, extensions: &[ExtensionType]) -> Account {
+        if token2022 {
+            let length =
+                ExtensionType::try_calculate_account_len::<spl_token_2022::state::Mint>(extensions)
+                    .unwrap();
+            let mut data = vec![0; length];
+            let mut state =
+                StateWithExtensionsMut::<spl_token_2022::state::Mint>::unpack_uninitialized(
+                    &mut data,
+                )
+                .unwrap();
+            if extensions.contains(&ExtensionType::TransferFeeConfig) {
+                state.init_extension::<TransferFeeConfig>(true).unwrap();
+            }
+            if extensions.contains(&ExtensionType::TransferHook) {
+                state.init_extension::<TransferHook>(true).unwrap();
+            }
+            state.base = spl_token_2022::state::Mint {
+                mint_authority: COption::None,
+                supply: 1_000_000,
+                decimals: 9,
+                is_initialized: true,
+                freeze_authority: COption::None,
+            };
+            state.pack_base();
+            state.init_account_type().unwrap();
+            Account {
+                owner: spl_token_2022::ID,
+                data,
+                lamports: 1_000_000,
+                ..Account::default()
+            }
+        } else {
+            let mut data = vec![0; spl_token::state::Mint::LEN];
+            spl_token::state::Mint {
+                mint_authority: COption::None,
+                supply: 1_000_000,
+                decimals: 9,
+                is_initialized: true,
+                freeze_authority: COption::None,
+            }
+            .pack_into_slice(&mut data);
+            Account {
+                owner: spl_token::ID,
+                data,
+                lamports: 1_000_000,
+                ..Account::default()
+            }
+        }
+    }
+
+    #[test]
+    fn admission_native_wallet_tokens_are_fully_backed_and_syncable() {
+        let amount = 4_123_456_789;
+        let funded = funded_wallet_token_account(
+            &mint(false, &[]),
+            spl_token::native_mint::ID,
+            Pubkey::new_unique(),
+            amount,
+            &Rent::default(),
+        )
+        .unwrap();
+        let token = spl_token::state::Account::unpack(&funded.data).unwrap();
+        let reserve = Rent::default().minimum_balance(spl_token::state::Account::LEN);
+        assert_eq!(token.is_native, COption::Some(reserve));
+        assert_eq!(token.amount, amount);
+        assert_eq!(funded.lamports, reserve + amount);
+        assert!(funded_wallet_token_account(
+            &mint(false, &[]),
+            spl_token::native_mint::ID,
+            Pubkey::new_unique(),
+            u64::MAX,
+            &Rent::default()
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn admission_token_2022_wallet_has_required_fee_extension_and_real_balance() {
+        let key = Pubkey::new_unique();
+        let funded = funded_wallet_token_account(
+            &mint(true, &[ExtensionType::TransferFeeConfig]),
+            key,
+            Pubkey::new_unique(),
+            123_456,
+            &Rent::default(),
+        )
+        .unwrap();
+        let token =
+            StateWithExtensions::<spl_token_2022::state::Account>::unpack(&funded.data).unwrap();
+        assert_eq!(token.base.amount, 123_456);
+        assert_eq!(token.base.mint, key);
+        assert_eq!(token.base.is_native, COption::None);
+        assert!(token.get_extension::<ImmutableOwner>().is_ok());
+        assert_eq!(
+            u64::from(
+                token
+                    .get_extension::<TransferFeeAmount>()
+                    .unwrap()
+                    .withheld_amount
+            ),
+            0
+        );
+        assert_eq!(
+            funded.lamports,
+            Rent::default().minimum_balance(funded.data.len())
+        );
+        assert!(funded_wallet_token_account(
+            &mint(true, &[ExtensionType::TransferHook]),
+            key,
+            Pubkey::new_unique(),
+            1,
+            &Rent::default()
+        )
+        .unwrap_err()
+        .to_string()
+        .contains("unsupported Token-2022"));
+    }
+
+    fn recorded(account: &Account) -> serde_json::Value {
+        serde_json::json!({"slot": 10, "account": {"lamports":account.lamports,"owner":account.owner.to_string(),"executable":account.executable,"rentEpoch":account.rent_epoch,"data":[base64::encode(&account.data),"base64"]}})
+    }
+
+    fn evidence() -> (ExecutionDump, serde_json::Value, Pubkey) {
+        let wallet = Keypair::new();
+        let input = Pubkey::new_unique();
+        let output = Pubkey::new_unique();
+        let program = Pubkey::new_unique();
+        let missing = Pubkey::new_unique();
+        let instruction = Instruction {
+            program_id: program,
+            accounts: vec![
+                AccountMeta::new(wallet.pubkey(), true),
+                AccountMeta::new(missing, false),
+            ],
+            data: vec![1],
+        };
+        let dump = ExecutionDump {
+            wallet_keypair: wallet.to_base58_string(),
+            programs: [program].into_iter().collect(),
+            cache: vec![ExecutionItem {
+                input_mint: input,
+                output_mint: output,
+                input_amount: 100,
+                output_amount: 90,
+                instruction: bincode::serialize(&instruction).unwrap(),
+                is_exact_out: false,
+            }],
+            accounts: HashMap::from([(missing, AccountSharedData::new(999, 100, &program))]),
+            missing_accounts: Default::default(),
+        };
+        let program_state = Account {
+            executable: true,
+            owner: solana_sdk::bpf_loader::ID,
+            data: vec![1, 2, 3],
+            ..Account::default()
+        };
+        let mut records = serde_json::Map::new();
+        records.insert(program.to_string(), recorded(&program_state));
+        records.insert(input.to_string(), recorded(&mint(false, &[])));
+        records.insert(output.to_string(), recorded(&mint(false, &[])));
+        let snapshot =
+            serde_json::json!({"version":1,"failed":false,"complete":true,"accounts":records});
+        (dump, snapshot, missing)
+    }
+
+    #[test]
+    fn admission_requires_recorded_metas_and_discards_candidate_funding() {
+        let (mut dump, mut snapshot, missing) = evidence();
+        assert!(canonicalize_dump(&mut dump, &snapshot, 100)
+            .unwrap_err()
+            .to_string()
+            .contains("never recorded"));
+        snapshot["accounts"][missing.to_string()] = serde_json::json!({"slot":10,"account":null});
+        canonicalize_dump(&mut dump, &snapshot, 100).unwrap();
+        assert!(!dump.accounts.contains_key(&missing));
+        assert!(dump.missing_accounts.contains(&missing));
+    }
+
+    #[test]
+    fn admission_rejects_canned_amount_failed_capture_and_unknown_signer() {
+        let (dump, mut snapshot, missing) = evidence();
+        snapshot["accounts"][missing.to_string()] = serde_json::json!({"slot":10,"account":null});
+        assert!(canonicalize_dump(&mut dump.clone(), &snapshot, 101).is_err());
+        let mut exact_out = dump.clone();
+        exact_out.cache[0].is_exact_out = true;
+        assert!(canonicalize_dump(&mut exact_out, &snapshot, 100)
+            .unwrap_err()
+            .to_string()
+            .contains("trusted requested input amount/mode"));
+        let mut incomplete = snapshot.clone();
+        incomplete["complete"] = false.into();
+        assert!(canonicalize_dump(&mut dump.clone(), &incomplete, 100).is_err());
+        let mut failed = snapshot.clone();
+        failed["failed"] = true.into();
+        assert!(canonicalize_dump(&mut dump.clone(), &failed, 100).is_err());
+        let mut signed = dump;
+        let mut instruction = deserialize_instruction(&signed.cache[0].instruction).unwrap();
+        instruction.accounts[1].is_signer = true;
+        signed.cache[0].instruction = bincode::serialize(&instruction).unwrap();
+        assert!(canonicalize_dump(&mut signed, &snapshot, 100)
+            .unwrap_err()
+            .to_string()
+            .contains("unexpected replay signer"));
+    }
 }

@@ -10,6 +10,7 @@ pub struct SwapResponse {
     #[serde_as(as = "Base64")]
     pub swap_transaction: Vec<u8>,
     pub last_valid_block_height: u64,
+    #[serde(rename = "prioritizationFeeLamports")]
     pub priorization_fee_lamports: u64,
 }
 

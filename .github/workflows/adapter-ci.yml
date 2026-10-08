@@ -1,0 +1,138 @@
+name: Adapter admission
+on:
+  workflow_dispatch:
+    inputs:
+      pr: {required: true, type: string}
+      sha: {required: true, type: string}
+      base: {required: true, type: string}
+permissions:
+  contents: read
+concurrency:
+  group: adapter-${{ inputs.pr }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          path: policy
+          persist-credentials: false
+      - name: Verify requested commit against GitHub
+        working-directory: policy
+        run: python3 ci/verify_dispatch.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr }}
+          CANDIDATE_SHA: ${{ inputs.sha }}
+          BASE_SHA: ${{ inputs.base }}
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.sha }}
+          path: candidate
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate scope and generated registry using trusted policy
+        id: scope
+        run: python3 policy/ci/check_candidate.py candidate "${BASE_SHA}" "${CANDIDATE_SHA}"
+        env:
+          CANDIDATE_SHA: ${{ inputs.sha }}
+          BASE_SHA: ${{ inputs.base }}
+      - name: Build isolated validation image from trusted policy
+        run: docker build -t adapter-validation -f policy/ci/Dockerfile policy
+      - name: Compile the independent verifier from trusted policy
+        run: docker build -t adapter-verifier -f policy/ci/verifier.Dockerfile policy
+      - name: Compile, test, capture and independently replay
+        env:
+          ADMISSION_ADAPTER_IDS: ${{ steps.scope.outputs.adapters }}
+          RPC_UPSTREAM: ${{ secrets.ADMISSION_RPC_URL }}
+        run: python3 policy/ci/validate.py candidate
+      - name: Test admission and inference policy
+        run: |
+          python3 -m unittest discover -s policy/ci -p 'test_*.py'
+          python3 -m unittest discover -s policy/tools/registry -p 'test_*.py'
+          node --test policy/tools/inference/test/*.test.mjs
+  executor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      # Adapter scope cannot modify the executor or this policy checkout.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Build pinned native validation toolchain
+        run: docker build -t adapter-validation -f ci/Dockerfile .
+      - name: Build real SBF executor and test venue from trusted source
+        run: docker build -t adapter-sbf -f ci/sbf.Dockerfile .
+      - name: Compile independent executor integration runner
+        run: docker build -t adapter-executor -f ci/executor.Dockerfile .
+      - name: Require actual SBF hop, slippage and fee tests
+        run: >-
+          docker run --rm --network none --read-only --cap-drop=ALL
+          --security-opt=no-new-privileges --pids-limit=1024 --memory=6g --cpus=4
+          --tmpfs /tmp:rw,nosuid,size=1g adapter-executor
+  dependencies:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+      - name: Reject fixable critical dependency advisories
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+  merge:
+    concurrency:
+      group: adapter-merge-queue
+      cancel-in-progress: false
+    needs: [validate, dependencies, executor]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      statuses: write
+      actions: write
+    steps:
+      # No candidate checkout/artifact/scripts in this privileged job.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - run: python3 ci/merge.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr }}
+          CANDIDATE_SHA: ${{ inputs.sha }}
+          BASE_SHA: ${{ inputs.base }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  retry-stale:
+    needs: [validate, dependencies, executor]
+    if: ${{ always() && (needs.validate.result == 'failure' || needs.dependencies.result == 'failure' || needs.executor.result == 'failure') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - run: python3 ci/retry_stale.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr }}
+          CANDIDATE_SHA: ${{ inputs.sha }}
+          BASE_SHA: ${{ inputs.base }}

@@ -7,12 +7,17 @@ use autobahn_executor::swap_ix::generate_swap_ix_data;
 use router_lib::dex::{AccountProviderView, SwapInstruction, SwapMode};
 use solana_program::instruction::Instruction;
 use solana_program::pubkey::Pubkey;
+use solana_sdk::account::ReadableAccount;
+use spl_associated_token_account::get_associated_token_address_with_program_id;
 use std::str::FromStr;
 
 const CU_PER_HOP_DEFAULT: u32 = 80_000;
 const CU_BASE: u32 = 150_000;
 
 pub trait SwapStepInstructionBuilder {
+    fn token_program(&self, _mint: &Pubkey) -> anyhow::Result<Pubkey> {
+        Ok(Token::id())
+    }
     fn build_ix(
         &self,
         wallet_pk: &Pubkey,
@@ -41,6 +46,15 @@ pub struct SwapStepInstructionBuilderImpl {
 }
 
 impl SwapStepInstructionBuilder for SwapStepInstructionBuilderImpl {
+    fn token_program(&self, mint: &Pubkey) -> anyhow::Result<Pubkey> {
+        let owner = *self.chain_data.account(mint)?.account.owner();
+        let token2022: Pubkey = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb".parse()?;
+        anyhow::ensure!(
+            owner == Token::id() || owner == token2022,
+            "unsupported mint owner"
+        );
+        Ok(owner)
+    }
     fn build_ix(
         &self,
         wallet_pk: &Pubkey,
@@ -101,7 +115,7 @@ impl<T: SwapStepInstructionBuilder> SwapInstructionsBuilder for SwapInstructions
             Pubkey::from_str("So11111111111111111111111111111111111111112").unwrap();
 
         if auto_wrap_sol && route.input_mint == sol_mint {
-            Self::create_ata(&wallet_pk, &mut setup_instructions, &sol_mint);
+            Self::create_ata(&wallet_pk, &mut setup_instructions, &sol_mint, &Token::id());
             let wsol_account = get_associated_token_address(wallet_pk, &sol_mint);
 
             let in_amount = match swap_mode {
@@ -145,7 +159,22 @@ impl<T: SwapStepInstructionBuilder> SwapInstructionsBuilder for SwapInstructions
 
         for step in &swap_instructions {
             if auto_create_out || (step.out_mint == sol_mint && auto_wrap_sol) {
-                Self::create_ata(&wallet_pk, &mut setup_instructions, &step.out_mint);
+                let token_program = self.ix_builder.token_program(&step.out_mint)?;
+                anyhow::ensure!(
+                    step.out_pubkey
+                        == get_associated_token_address_with_program_id(
+                            wallet_pk,
+                            &step.out_mint,
+                            &token_program
+                        ),
+                    "adapter output is not the correct owner ATA"
+                );
+                Self::create_ata(
+                    &wallet_pk,
+                    &mut setup_instructions,
+                    &step.out_mint,
+                    &token_program,
+                );
                 cu_estimate += 12_000;
             }
 
@@ -173,7 +202,11 @@ impl<T: SwapStepInstructionBuilder> SwapInstructionsBuilder for SwapInstructions
             min_out_amount,
             instructions.as_slice(),
             in_amount_offsets.as_slice(),
-            get_associated_token_address(&wallet_pk, &route.input_mint),
+            get_associated_token_address_with_program_id(
+                &wallet_pk,
+                &route.input_mint,
+                &self.ix_builder.token_program(&route.input_mint)?,
+            ),
             out_account_pubkeys.as_slice(),
             exec_program_id,
             self.router_version,
@@ -204,13 +237,18 @@ impl<T: SwapStepInstructionBuilder> SwapInstructionsBuilderImpl<T> {
         Ok(())
     }
 
-    fn create_ata(wallet_pk: &&Pubkey, setup_instructions: &mut Vec<Instruction>, mint: &Pubkey) {
+    fn create_ata(
+        wallet_pk: &&Pubkey,
+        setup_instructions: &mut Vec<Instruction>,
+        mint: &Pubkey,
+        token_program: &Pubkey,
+    ) {
         setup_instructions.push(
             spl_associated_token_account::instruction::create_associated_token_account_idempotent(
                 &wallet_pk,
                 &wallet_pk,
                 &mint,
-                &Token::id(),
+                token_program,
             ),
         );
     }
@@ -336,7 +374,7 @@ mod tests {
     impl SwapStepInstructionBuilder for MockSwapStepInstructionBuilder {
         fn build_ix(
             &self,
-            _wallet_pk: &Pubkey,
+            wallet_pk: &Pubkey,
             step: &RouteStep,
             _max_slippage_bps: i32,
             _swap_mode: SwapMode,
@@ -348,12 +386,117 @@ mod tests {
                     accounts: vec![],
                     data: vec![],
                 },
-                out_pubkey: Default::default(),
+                out_pubkey: get_associated_token_address(wallet_pk, &step.edge.output_mint),
                 out_mint: step.edge.output_mint,
                 in_amount_offset: 0,
                 cu_estimate: None,
             })
         }
+    }
+
+    struct Token2022StepBuilder {
+        wrong_output_account: bool,
+    }
+    impl SwapStepInstructionBuilder for Token2022StepBuilder {
+        fn token_program(&self, _: &Pubkey) -> anyhow::Result<Pubkey> {
+            Ok("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb".parse()?)
+        }
+        fn build_ix(
+            &self,
+            wallet: &Pubkey,
+            step: &RouteStep,
+            _: i32,
+            _: SwapMode,
+            _: u64,
+        ) -> anyhow::Result<SwapInstruction> {
+            let program = if self.wrong_output_account {
+                Token::id()
+            } else {
+                self.token_program(&step.edge.output_mint)?
+            };
+            Ok(SwapInstruction {
+                instruction: Instruction {
+                    program_id: Pubkey::new_unique(),
+                    accounts: vec![],
+                    data: 1000u64.to_le_bytes().to_vec(),
+                },
+                out_pubkey: get_associated_token_address_with_program_id(
+                    wallet,
+                    &step.edge.output_mint,
+                    &program,
+                ),
+                out_mint: step.edge.output_mint,
+                in_amount_offset: 0,
+                cu_estimate: None,
+            })
+        }
+    }
+
+    #[test]
+    fn token_2022_input_and_output_use_their_actual_program_atas() {
+        let wallet = Pubkey::new_unique();
+        let input = Pubkey::new_unique();
+        let output = Pubkey::new_unique();
+        let token_program: Pubkey = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+            .parse()
+            .unwrap();
+        let route = Route {
+            input_mint: input,
+            output_mint: output,
+            in_amount: 1000,
+            out_amount: 2000,
+            price_impact_bps: None,
+            slot: 0,
+            accounts: None,
+            steps: vec![RouteStep {
+                edge: Arc::new(Edge {
+                    input_mint: input,
+                    output_mint: output,
+                    dex: Arc::new(MockDex {}),
+                    id: Arc::new(MockId {}),
+                    accounts_needed: 1,
+                    state: Default::default(),
+                }),
+                in_amount: 1000,
+                out_amount: 2000,
+                fee_amount: 0,
+                fee_mint: input,
+            }],
+        };
+        let builder = SwapInstructionsBuilderImpl::new(
+            Token2022StepBuilder {
+                wrong_output_account: false,
+            },
+            1,
+        );
+        let swap = builder
+            .build_ixs(&wallet, &route, false, true, 100, 1900, SwapMode::ExactIn)
+            .unwrap();
+        let in_ata = get_associated_token_address_with_program_id(&wallet, &input, &token_program);
+        let out_ata =
+            get_associated_token_address_with_program_id(&wallet, &output, &token_program);
+        assert_eq!(swap.swap_instruction.accounts[0].pubkey, in_ata);
+        assert_eq!(swap.swap_instruction.accounts[1].pubkey, out_ata);
+        assert_ne!(in_ata, get_associated_token_address(&wallet, &input));
+        assert_eq!(swap.setup_instructions.len(), 1);
+        assert!(swap.setup_instructions[0]
+            .accounts
+            .iter()
+            .any(|meta| meta.pubkey == token_program));
+        assert!(swap.setup_instructions[0]
+            .accounts
+            .iter()
+            .any(|meta| meta.pubkey == out_ata));
+        assert!(swap.cleanup_instructions.is_empty());
+        let wrong = SwapInstructionsBuilderImpl::new(
+            Token2022StepBuilder {
+                wrong_output_account: true,
+            },
+            1,
+        );
+        assert!(wrong
+            .build_ixs(&wallet, &route, false, true, 100, 1900, SwapMode::ExactIn)
+            .is_err());
     }
 
     #[test]
@@ -368,7 +511,7 @@ mod tests {
                 output_mint: 2.to_pubkey(),
                 in_amount: 1000,
                 out_amount: 2000,
-                price_impact_bps: 0,
+                price_impact_bps: None,
                 steps: vec![],
                 slot: 0,
                 accounts: None,
@@ -395,7 +538,7 @@ mod tests {
                 output_mint: 2.to_pubkey(),
                 in_amount: 1000,
                 out_amount: 2000,
-                price_impact_bps: 0,
+                price_impact_bps: None,
                 steps: vec![],
                 slot: 0,
                 accounts: None,
@@ -444,7 +587,7 @@ mod tests {
                     output_mint: out_mint,
                     in_amount: 1000,
                     out_amount: 2000,
-                    price_impact_bps: 0,
+                    price_impact_bps: None,
                     slot: 0,
                     accounts: None,
                     steps: vec![RouteStep {
@@ -487,7 +630,7 @@ mod tests {
                     output_mint: 2.to_pubkey(),
                     in_amount: 1000,
                     out_amount: 2000,
-                    price_impact_bps: 0,
+                    price_impact_bps: None,
                     slot: 0,
                     accounts: None,
                     steps: vec![RouteStep {
@@ -530,7 +673,7 @@ mod tests {
                     output_mint: 2.to_pubkey(),
                     in_amount: 1000,
                     out_amount: 2000,
-                    price_impact_bps: 0,
+                    price_impact_bps: None,
                     slot: 0,
                     accounts: None,
                     steps: vec![RouteStep {

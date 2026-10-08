@@ -20,9 +20,11 @@ where
     for<'a> T: Deserialize<'a>,
 {
     let file_reader = File::open(path)?;
-    let mut reader = lz4::Decoder::new(file_reader).unwrap();
+    let reader = lz4::Decoder::new(file_reader)?;
+    let mut reader = reader.take(512 * 1024 * 1024 + 1);
     let mut data = vec![];
-    reader.read_to_end(&mut data).unwrap();
+    reader.read_to_end(&mut data)?;
+    anyhow::ensure!(data.len() <= 512 * 1024 * 1024, "oversized execution dump");
 
     let dump: T = bincode::deserialize(data.as_slice())?;
     Ok(dump)

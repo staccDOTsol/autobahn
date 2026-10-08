@@ -1,0 +1,69 @@
+# RPC_HTTP_URL is a server secret. No wallet or signing key is required.
+[rpc_routing]
+refresh_seconds = 10
+max_hops = 12
+max_paths = 256
+
+# Warm examples, never an allowlist. Unknown requested mints are discovered.
+[adapters.meteora-dbc]
+base_mints = "HHWMBr8ff51WYFUwsFMFndFCj8EzMrv5c3Bi44xuchZC,53cTDPa69sUXtn4FiuXiKEipJGkUUaNxoisBiuSFkd5i"
+
+[routing]
+path_cache_validity_ms = 500
+lookup_tables = []
+[server]
+address = "0.0.0.0:8080"
+[metrics]
+output_stdout = false
+output_http = false
+[price_feed]
+birdeye_token = "unused"
+refresh_interval_secs = 60
+
+[[sources]]
+rpc_http_url = "$RPC_HTTP_URL"
+rpc_support_compression = false
+dedup_queue_size = 1000
+request_timeout_in_seconds = 10
+number_of_accounts_per_gma = 100
+
+[orca]
+enabled = true
+mints = []
+add_mango_tokens = false
+take_all_mints = true
+[cropper]
+enabled = false
+mints = []
+add_mango_tokens = false
+take_all_mints = true
+[openbook_v2]
+enabled = true
+mints = []
+add_mango_tokens = false
+take_all_mints = true
+[raydium_cp]
+enabled = true
+mints = []
+add_mango_tokens = false
+take_all_mints = true
+[raydium]
+enabled = true
+mints = []
+add_mango_tokens = false
+take_all_mints = true
+[saber]
+enabled = true
+mints = []
+add_mango_tokens = false
+take_all_mints = true
+[invariant]
+enabled = true
+mints = []
+add_mango_tokens = false
+take_all_mints = true
+[infinity]
+enabled = true
+
+# Stake-pool requires a live bridge and an independently verified bytecode hash.
+# Do not configure the historical closed bridge.

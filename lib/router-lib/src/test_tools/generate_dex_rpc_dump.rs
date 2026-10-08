@@ -156,6 +156,10 @@ pub async fn run_dump_mainnet_data_with_custom_amount(
     println!("Success count: {}", success);
 
     assert!(!accounts_needed.is_empty());
+    if std::env::var_os("ADMISSION_STRICT").is_some() {
+        anyhow::ensure!(success > 0 && errors == 0 && skipped == 0,
+            "Admission capture requires every selected edge to quote and build: {success} passed, {errors} failed, {skipped} skipped");
+    }
     Ok(())
 }
 
@@ -294,8 +298,10 @@ pub async fn run_dump_swap_ix_with_custom_amount(
         dump.accounts
             .insert(id.output_mint(), account.account.clone());
 
-        // build exact out tests
-        if dex.supports_exact_out(&id) {
+        // Admission certifies the RPC route provider's ExactIn contract: every
+        // replay must consume the trusted ADMISSION_AMOUNT. ExactOut is not
+        // served by that provider yet; retain its legacy fixtures separately.
+        if std::env::var_os("ADMISSION_STRICT").is_none() && dex.supports_exact_out(&id) {
             let Ok(mut quote_exact_out) =
                 dex.quote_exact_out(&id, &edge, &account_provider, q(edge.clone()))
             else {
@@ -395,6 +401,12 @@ pub async fn run_dump_swap_ix_with_custom_amount(
             "following account is in the transaction but does not exists : {:?}",
             pk
         );
+    }
+
+    anyhow::ensure!(success > 0, "No executable exact-in quotes captured");
+    if std::env::var_os("ADMISSION_STRICT").is_some() {
+        anyhow::ensure!(errors == 0, "Adapter failed to load, quote, or build {} edges", errors);
+        anyhow::ensure!(skipped == 0, "Adapter returned zero input/output for {} edges", skipped);
     }
 
     serialize::serialize_to_file(

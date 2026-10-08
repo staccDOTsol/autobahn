@@ -125,7 +125,7 @@ mod tests {
             start.elapsed().as_micros() as f64 / 1000.0
         );
         println!("out_amount: {}", path.out_amount);
-        println!("price_impact (bps): {}", path.price_impact_bps);
+        println!("price_impact (bps): {:?}", path.price_impact_bps);
         println!("steps count: {}", path.steps.len());
     }
 }

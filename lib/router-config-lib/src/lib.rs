@@ -30,6 +30,12 @@ pub struct TlsConfig {
 
 #[derive(Clone, Debug, Default, serde_derive::Deserialize)]
 pub struct Config {
+    #[serde(default)]
+    pub rpc_routing: Option<RpcRoutingConfig>,
+    #[serde(default)]
+    pub adapters: std::collections::HashMap<String, std::collections::HashMap<String, String>>,
+    #[serde(default)]
+    pub disabled_adapters: Vec<String>,
     pub routing: RoutingConfig,
     pub server: ServerConfig,
     pub metrics: MetricsConfig,
@@ -212,4 +218,12 @@ pub fn string_or_env(value_or_env: String) -> String {
     };
 
     value
+}
+
+/// Direct account quoting does not require a USD price feed or a Geyser subscription.
+#[derive(Clone, Debug, serde_derive::Deserialize)]
+pub struct RpcRoutingConfig {
+    pub refresh_seconds: u64,
+    pub max_hops: usize,
+    pub max_paths: usize,
 }

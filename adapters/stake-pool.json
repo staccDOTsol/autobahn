@@ -1,0 +1,12 @@
+{
+  "id": "stake-pool",
+  "crate": "dex-stake-pool",
+  "type": "StakePoolDex",
+  "operations": ["stake", "unstake"],
+  "requiresConfiguration": true,
+  "provenance": {
+    "source": "solana-liquidity-engine client/src/lst-swap.ts and program/src/router.rs; Apache-2.0 spl-stake-pool 1.0.0",
+    "revision": "50c64119edebbb8c72d0ddceb4ee1f25e2d673ca",
+    "license": "AGPL-3.0-only; original bridge Apache-2.0"
+  }
+}

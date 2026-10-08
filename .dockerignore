@@ -8,15 +8,17 @@ target
 
 dist
 node_modules
+**/node_modules
 yarn-error.log
 
 .idea
 .vscode
 
 .env
+.env*
+**/__pycache__
 config/
 
 **/.git
 **/*.lz4
 **/*.so
-

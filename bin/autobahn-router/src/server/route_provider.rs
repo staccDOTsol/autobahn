@@ -13,6 +13,10 @@ use router_lib::dex::{AccountProviderView, SwapMode};
 use router_lib::price_feeds::price_cache::PriceCache;
 
 pub trait RouteProvider {
+    fn discovery_status(&self) -> serde_json::Value {
+        serde_json::json!({"mode": "feed"})
+    }
+
     fn prepare_pruned_edges_and_cleanup_cache(
         &self,
         hot_mints: &HashSet<Pubkey>,
@@ -169,8 +173,18 @@ impl RouteProvider for RoutingRouteProvider {
         let output_mint = Pubkey::from_str(&quote_response.output_mint)?;
         let in_amount = quote_response.in_amount.clone().unwrap().parse()?; // TODO Remove opt ? Handle exact out ?
         let out_amount = quote_response.out_amount.parse()?;
-        let price_impact_pct: f64 = quote_response.price_impact_pct.parse()?;
-        let price_impact_bps = (price_impact_pct * 100.0).round() as u64;
+        let price_impact_bps = quote_response
+            .price_impact_pct
+            .as_deref()
+            .map(|value| -> anyhow::Result<i64> {
+                let value: f64 = value.parse()?;
+                anyhow::ensure!(
+                    value.is_finite() && (value * 100.0).abs() < i64::MAX as f64,
+                    "Invalid price impact"
+                );
+                Ok((value * 100.0).round() as i64)
+            })
+            .transpose()?;
         let slot = quote_response.context_slot;
 
         let steps: anyhow::Result<Vec<_>> = quote_response

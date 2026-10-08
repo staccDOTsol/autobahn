@@ -9,3 +9,7 @@ config
 .vscode
 profile.json
 *.lz4
+node_modules/
+__pycache__/
+.env*
+!.env.example

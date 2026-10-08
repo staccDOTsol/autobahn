@@ -1445,11 +1445,12 @@ impl Routing {
             let expected_ratio = 1_000.0 / out_amount_for_small_amount as f64;
             let actual_ratio = actual_in_amount as f64 / actual_out_amount as f64;
 
-            let price_impact = expected_ratio / actual_ratio * 10_000.0 - 10_000.0;
-            let price_impact_bps = price_impact.round() as u64;
+            let price_impact_bps = crate::price_impact::relative_impact_bps(
+                actual_in_amount, actual_out_amount, 1_000, out_amount_for_small_amount,
+            );
 
             trace!(
-                price_impact_bps,
+                price_impact_bps = ?price_impact_bps,
                 out_amount_for_small_amount,
                 out_amount_for_request,
                 expected_ratio,

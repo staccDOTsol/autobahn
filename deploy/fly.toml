@@ -1,0 +1,31 @@
+app = "liquidityxyz-router"
+primary_region = "iad"
+kill_signal = "SIGTERM"
+kill_timeout = "30s"
+[build]
+  dockerfile = "../bin/autobahn-router/Dockerfile"
+  [build.args]
+    CONFIG_PATH = "/app/deploy/aggregator.toml"
+[processes]
+  app = "autobahn-router /usr/local/bin/template-config.toml"
+[http_service]
+  processes = ["app"]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 40
+    hard_limit = 60
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 2
+  memory = "2gb"
+[[http_service.checks]]
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "60s"
+  method = "GET"
+  path = "/health"

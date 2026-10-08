@@ -17,6 +17,7 @@ crate-type = ["cdylib", "lib"]
 doctest = false
 
 [dev-dependencies]
+serde_json = "1.0"
 autobahn-executor = { path = "../autobahn-executor", features = ["no-entrypoint"] }
 router-test-lib = { path = "../../lib/router-test-lib" }
 test-case = "*"

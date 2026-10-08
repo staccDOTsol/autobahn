@@ -1,0 +1,10 @@
+[package]
+name = "adapter-admission"
+version = "0.1.0"
+edition = "2021"
+[dependencies]
+adapter-registry = { path = "../../lib/adapter-registry" }
+router-lib = { path = "../../lib/router-lib" }
+anyhow = { workspace = true }
+tokio = { workspace = true }
+serde_json = "1.0"

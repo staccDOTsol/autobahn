@@ -58,6 +58,8 @@ pub mod prelude;
 mod prometheus_sync;
 pub mod routing;
 pub mod routing_objectpool;
+mod rpc_routing;
+mod price_impact;
 pub mod routing_types;
 pub mod server;
 mod slot_watcher;
@@ -98,6 +100,9 @@ async fn main() -> anyhow::Result<()> {
 
     let config = Config::load(&args[1])?;
     let router_version = RouterVersion::OverestimateAmount;
+    if config.rpc_routing.is_some() {
+        return rpc_routing::run(config).await;
+    }
 
     if config.metrics.output_http {
         let prom_bind_addr = config
@@ -244,7 +249,7 @@ async fn main() -> anyhow::Result<()> {
         gpa_compression_enabled,
     };
 
-    let dexs: Vec<Dex> = [
+    let mut dexs: Vec<Dex> = [
         dex::generic::build_dex!(
             OrcaDex::initialize(&mut router_rpc, orca_config).await?,
             &mango_data,
@@ -314,6 +319,9 @@ async fn main() -> anyhow::Result<()> {
     .flatten()
     .collect();
 
+    for adapter in adapter_registry::initialize(&mut router_rpc, &config.adapters, &config.disabled_adapters).await? {
+        dexs.push(dex::generic::build_dex_internal(adapter, &mango_data, true, false, true, &vec![]).await?);
+    }
     let edges = dexs.iter().flat_map(|x| x.edges()).collect_vec();
 
     // these are around 380k mints

@@ -41,6 +41,21 @@ pub struct HttpServer {
     pub join_handle: JoinHandle<()>,
 }
 
+struct BuiltSwapTransaction {
+    bytes: Vec<u8>,
+    accounts_count: usize,
+    last_valid_block_height: u64,
+    priority_fee_lamports: u64,
+}
+
+fn amount_threshold(amount: u64, slippage_bps: u64, exact_out: bool) -> anyhow::Result<u64> {
+    anyhow::ensure!(slippage_bps < 10_000, "Slippage must be between 0 and 9999 basis points");
+    let bps = if exact_out { 10_000 + slippage_bps } else { 10_000 - slippage_bps };
+    let numerator = u128::from(amount) * u128::from(bps);
+    let rounded = if exact_out { (numerator + 9_999) / 10_000 } else { numerator / 10_000 };
+    u64::try_from(rounded).map_err(|_| anyhow::anyhow!("Slippage threshold exceeds token amount range"))
+}
+
 impl HttpServer {
     pub async fn start<
         TRouteProvider: RouteProvider + Send + Sync + 'static,
@@ -154,6 +169,8 @@ impl HttpServer {
         Form(input): Form<QuoteRequest>,
     ) -> Result<Json<Value>, AppError> {
         let started_at = Instant::now();
+        if input.amount == 0 { return Err(anyhow::anyhow!("Amount must be positive").into()); }
+        amount_threshold(input.amount, input.slippage_bps, false)?;
         let input_mint = Pubkey::from_str(&input.input_mint)?;
         let output_mint = Pubkey::from_str(&input.output_mint)?;
         let swap_mode = input.swap_mode.or(input.mode).unwrap_or_default();
@@ -168,7 +185,7 @@ impl HttpServer {
                 swap_mode,
             )?;
 
-            let (bytes, accounts_count) = Self::build_swap_tx(
+            let built = Self::build_swap_tx(
                 address_lookup_table_addresses.clone(),
                 hash_provider.clone(),
                 alt_provider.clone(),
@@ -184,7 +201,8 @@ impl HttpServer {
             )
             .await?;
 
-            let tx_size = bytes.len();
+            let tx_size = built.bytes.len();
+            let accounts_count = built.accounts_count;
             if accounts_count <= MAX_ACCOUNTS_PER_TX && tx_size < MAX_TX_SIZE {
                 break Ok(route_candidate);
             } else if max_accounts >= 10 {
@@ -201,13 +219,11 @@ impl HttpServer {
 
         Self::log_repriced_amount(live_account_provider, reprice_probability, &route);
 
-        let other_amount_threshold = if swap_mode == SwapMode::ExactOut {
-            (route.in_amount as f64 * (10_000f64 + input.slippage_bps as f64) / 10_000f64).floor()
-                as u64
-        } else {
-            ((route.out_amount as f64 * (10_000f64 - input.slippage_bps as f64)) / 10_000f64)
-                .floor() as u64
-        };
+        let other_amount_threshold = amount_threshold(
+            if swap_mode == SwapMode::ExactOut { route.in_amount } else { route.out_amount },
+            input.slippage_bps,
+            swap_mode == SwapMode::ExactOut,
+        )?;
 
         let route_plan = route
             .steps
@@ -250,7 +266,9 @@ impl HttpServer {
             swap_mode: swap_mode.to_string(),
             slippage_bps: input.slippage_bps as i32,
             platform_fee: None, // TODO
-            price_impact_pct: (route.price_impact_bps as f64 / 100.0).to_string(),
+            price_impact_pct: route
+                .price_impact_bps
+                .map(|bps| (bps as f64 / 100.0).to_string()),
             route_plan,
             accounts,
             context_slot,
@@ -273,23 +291,33 @@ impl HttpServer {
         alt_provider: Arc<TAltProvider>,
         live_account_provider: Arc<TAccountProvider>,
         ix_builder: Arc<TIxBuilder>,
-        reprice_probability: f64,
+        _reprice_probability: f64,
         Query(_query): Query<SwapForm>,
         Json(input): Json<SwapRequest>,
     ) -> Result<Json<Value>, AppError> {
         let route = route_provider.try_from(&input.quote_response)?;
-
-        Self::log_repriced_amount(live_account_provider, reprice_probability, &route);
-
         let swap_mode: SwapMode = SwapMode::from_str(&input.quote_response.swap_mode)
             .map_err(|_| anyhow::Error::msg("Invalid SwapMode"))?;
+        let route = refresh_before_build(
+            route,
+            live_account_provider,
+            swap_mode,
+            input.quote_response.other_amount_threshold.parse()?,
+            input.quote_response.slippage_bps,
+        )?;
+        // Exact-out still uses the executor's exact-input CPI chaining. Spend the
+        // freshly required amount, never the user's entire maximum by default.
+        let build_threshold = match swap_mode {
+            SwapMode::ExactIn => input.quote_response.other_amount_threshold.clone(),
+            SwapMode::ExactOut => route.in_amount.to_string(),
+        };
 
         let compute_unit_price_micro_lamports = match input.compute_unit_price_micro_lamports {
             Some(price) => price,
             None => DEFAULT_COMPUTE_UNIT_PRICE_MICRO_LAMPORTS,
         };
 
-        let (bytes, _) = Self::build_swap_tx(
+        let built = Self::build_swap_tx(
             address_lookup_table_addresses,
             hash_provider,
             alt_provider,
@@ -299,16 +327,19 @@ impl HttpServer {
             input.wrap_and_unwrap_sol,
             input.auto_create_out_ata,
             input.quote_response.slippage_bps,
-            input.quote_response.other_amount_threshold,
+            build_threshold,
             swap_mode,
             compute_unit_price_micro_lamports,
         )
         .await?;
 
+        if built.bytes.len() > MAX_TX_SIZE || built.accounts_count > MAX_ACCOUNTS_PER_TX {
+            return Err(anyhow::anyhow!("Route exceeds transaction limits; request a new quote").into());
+        }
         let json_response = serde_json::json!(SwapResponse {
-            swap_transaction: bytes,
-            last_valid_block_height: input.quote_response.context_slot,
-            priorization_fee_lamports: compute_unit_price_micro_lamports / 1_000_000, // convert microlamports to lamports
+            swap_transaction: built.bytes,
+            last_valid_block_height: built.last_valid_block_height,
+            priorization_fee_lamports: built.priority_fee_lamports,
         });
 
         Ok(Json(json_response))
@@ -365,7 +396,7 @@ impl HttpServer {
         other_amount_threshold: String,
         swap_mode: SwapMode,
         compute_unit_price_micro_lamports: u64,
-    ) -> Result<(Vec<u8>, usize), AppError> {
+    ) -> Result<BuiltSwapTransaction, AppError> {
         let wallet_pk = Pubkey::from_str(&wallet_pk)?;
 
         let ixs = ix_builder.build_ixs(
@@ -378,6 +409,9 @@ impl HttpServer {
             swap_mode,
         )?;
 
+        let priority_fee_lamports = u64::try_from(
+            (u128::from(compute_unit_price_micro_lamports) * u128::from(ixs.cu_estimate) + 999_999) / 1_000_000
+        ).map_err(|_| anyhow::anyhow!("Priority fee exceeds lamport range"))?;
         let compute_budget_ixs = vec![
             ComputeBudgetInstruction::set_compute_unit_price(compute_unit_price_micro_lamports),
             ComputeBudgetInstruction::set_compute_unit_limit(ixs.cu_estimate),
@@ -396,28 +430,31 @@ impl HttpServer {
         let accounts = transaction_addresses.iter().unique().count()
             + alts.iter().map(|x| x.key).unique().count();
 
+        let (blockhash, last_valid_block_height) = hash_provider.get_latest_hash().await?;
         let v0_message = solana_sdk::message::v0::Message::try_compile(
             &wallet_pk,
             instructions.as_slice(),
             alts.as_slice(),
-            hash_provider.get_latest_hash().await?,
+            blockhash,
         )?;
 
         let message = VersionedMessage::V0(v0_message);
         let tx = VersionedTransaction::try_new(message, &[&NullSigner::new(&wallet_pk)])?;
         let bytes = bincode::serialize(&tx)?;
 
-        Ok((bytes, accounts))
+        Ok(BuiltSwapTransaction { bytes, accounts_count: accounts, last_valid_block_height, priority_fee_lamports })
     }
 
     async fn swap_ix_handler<
         TRouteProvider: RouteProvider + Send + Sync + 'static,
         TAltProvider: AltProvider + Send + Sync + 'static,
+        TAccountProvider: AccountProvider + Send + Sync + 'static,
         TIxBuilder: SwapInstructionsBuilder + Send + Sync + 'static,
     >(
         address_lookup_table_addresses: Vec<String>,
         route_provider: Arc<TRouteProvider>,
         alt_provider: Arc<TAltProvider>,
+        live_account_provider: Arc<TAccountProvider>,
         ix_builder: Arc<TIxBuilder>,
         Query(_query): Query<SwapForm>,
         Json(input): Json<SwapRequest>,
@@ -427,6 +464,17 @@ impl HttpServer {
         let route_plan = route_provider.try_from(&input.quote_response)?;
         let swap_mode: SwapMode = SwapMode::from_str(&input.quote_response.swap_mode)
             .map_err(|_| anyhow::Error::msg("Invalid SwapMode"))?;
+        let route_plan = refresh_before_build(
+            route_plan,
+            live_account_provider,
+            swap_mode,
+            input.quote_response.other_amount_threshold.parse()?,
+            input.quote_response.slippage_bps,
+        )?;
+        let build_threshold = match swap_mode {
+            SwapMode::ExactIn => input.quote_response.other_amount_threshold.parse()?,
+            SwapMode::ExactOut => route_plan.in_amount,
+        };
 
         let compute_unit_price_micro_lamports = match input.compute_unit_price_micro_lamports {
             Some(price) => price,
@@ -439,7 +487,7 @@ impl HttpServer {
             input.wrap_and_unwrap_sol,
             input.auto_create_out_ata,
             input.quote_response.slippage_bps,
-            input.quote_response.other_amount_threshold.parse()?,
+            build_threshold,
             swap_mode,
         )?;
 
@@ -539,6 +587,19 @@ impl HttpServer {
             .allow_origin(Any);
 
         router = router.route("/", routing::get(Self::handler));
+        let health_routes = route_provider.clone();
+        router = router.route(
+            "/health",
+            routing::get(move || {
+                let discovery = health_routes.discovery_status();
+                async move { Json(serde_json::json!({ "status": "ok", "discovery": discovery })) }
+            }),
+        );
+        let venues = route_provider.clone();
+        router = router.route("/venues", routing::get(move || {
+            let status = venues.discovery_status();
+            async move { Json(status) }
+        }));
 
         let lp = liquidity_provider.clone();
         router = router.route(
@@ -628,6 +689,7 @@ impl HttpServer {
         let alt = address_lookup_tables.clone();
         let rp = route_provider.clone();
         let altp = alt_provider.clone();
+        let lap = live_account_provider.clone();
         let ixb = ix_builder.clone();
         router = router.route(
             "/swap-instructions",
@@ -637,7 +699,7 @@ impl HttpServer {
                     .with_label_values(&["swap-ix", client_key])
                     .start_timer();
 
-                let response = Self::swap_ix_handler(alt, rp, altp, ixb, query, form).await;
+                let response = Self::swap_ix_handler(alt, rp, altp, lap, ixb, query, form).await;
 
                 match response {
                     Ok(_) => {
@@ -687,4 +749,240 @@ fn reprice<TAccountProvider: AccountProvider + Send + Sync + 'static>(
         amount = quote?.out_amount;
     }
     Ok(amount)
+}
+
+/// Re-quote every hop immediately before either transaction-building endpoint.
+/// Client route amounts are a request, not an executable quote. Keep its signed
+/// intent (exact amount plus slippage bound), replace all intermediate amounts.
+fn refresh_before_build<TAccountProvider: AccountProvider + Send + Sync + 'static>(
+    mut route: Route,
+    provider: Arc<TAccountProvider>,
+    mode: SwapMode,
+    threshold: u64,
+    slippage_bps: i32,
+) -> anyhow::Result<Route> {
+    anyhow::ensure!(
+        (0..10_000).contains(&slippage_bps),
+        "Invalid slippage tolerance"
+    );
+    anyhow::ensure!(
+        threshold > 0 && route.in_amount > 0 && route.out_amount > 0,
+        "Swap amounts and slippage bound must be positive"
+    );
+    anyhow::ensure!(!route.steps.is_empty(), "Cannot build an empty route");
+    let mut mint = route.input_mint;
+    let mut used = HashSet::new();
+    for step in &route.steps {
+        anyhow::ensure!(step.edge.input_mint == mint, "Disconnected route");
+        anyhow::ensure!(
+            used.insert(step.edge.key()),
+            "Repeated pool requires sequential state simulation; request a different route"
+        );
+        mint = step.edge.output_mint;
+    }
+    anyhow::ensure!(mint == route.output_mint, "Route output mint mismatch");
+    let provider = provider as AccountProviderView;
+    match mode {
+        SwapMode::ExactIn => {
+            let mut amount = route.in_amount;
+            for step in &mut route.steps {
+                let state = step
+                    .edge
+                    .prepare(&provider)
+                    .context("Fresh route account load failed")?;
+                let quote = step
+                    .edge
+                    .quote(&state, &provider, amount)
+                    .context("Fresh exact-input quote failed; request a new quote")?;
+                anyhow::ensure!(
+                    quote.in_amount == amount && quote.out_amount > 0,
+                    "Fresh route did not fill the requested amount"
+                );
+                step.in_amount = quote.in_amount;
+                step.out_amount = quote.out_amount;
+                step.fee_amount = quote.fee_amount;
+                step.fee_mint = quote.fee_mint;
+                amount = quote.out_amount;
+            }
+            anyhow::ensure!(
+                amount >= threshold,
+                "Quote moved outside the minimum output; request a new quote"
+            );
+            route.out_amount = amount;
+        }
+        SwapMode::ExactOut => {
+            let mut amount = route.out_amount;
+            for step in route.steps.iter_mut().rev() {
+                anyhow::ensure!(
+                    step.edge.supports_exact_out(),
+                    "Route does not support exact output"
+                );
+                let state = step
+                    .edge
+                    .prepare(&provider)
+                    .context("Fresh route account load failed")?;
+                let quote = step
+                    .edge
+                    .quote_exact_out(&state, &provider, amount)
+                    .context("Fresh exact-output quote failed; request a new quote")?;
+                anyhow::ensure!(
+                    quote.out_amount >= amount && quote.in_amount > 0,
+                    "Fresh route cannot fill the requested output"
+                );
+                step.in_amount = quote.in_amount;
+                step.out_amount = amount;
+                step.fee_amount = quote.fee_amount;
+                step.fee_mint = quote.fee_mint;
+                amount = quote.in_amount;
+            }
+            anyhow::ensure!(
+                amount <= threshold,
+                "Quote moved outside the maximum input; request a new quote"
+            );
+            route.in_amount = amount;
+        }
+    }
+    // The client-supplied captured accounts no longer describe this fresh quote.
+    route.accounts = None;
+    Ok(route)
+}
+
+#[cfg(test)]
+mod fresh_quote_tests {
+    use super::*;
+    use crate::edge::EdgeState;
+    use crate::mock::test::{MockDexIdentifier, MockDexInterface};
+    use crate::routing_types::RouteStep;
+    use mango_feeds_connector::chain_data::AccountData;
+
+    struct NoAccounts;
+    impl AccountProvider for NoAccounts {
+        fn account(&self, _key: &Pubkey) -> anyhow::Result<AccountData> {
+            bail!("No accounts required by mock")
+        }
+        fn newest_processed_slot(&self) -> u64 {
+            123
+        }
+    }
+
+    fn route() -> Route {
+        let mints = [
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+        ];
+        let steps = (0..2)
+            .map(|i| {
+                let edge = Arc::new(Edge {
+                    input_mint: mints[i],
+                    output_mint: mints[i + 1],
+                    id: Arc::new(MockDexIdentifier {
+                        key: Pubkey::new_unique(),
+                        input_mint: mints[i],
+                        output_mint: mints[i + 1],
+                        price: (i + 2) as f64,
+                    }),
+                    dex: Arc::new(MockDexInterface {}),
+                    accounts_needed: 0,
+                    state: RwLock::new(EdgeState::default()),
+                });
+                RouteStep {
+                    edge,
+                    in_amount: 9999,
+                    out_amount: 9999,
+                    fee_amount: 9999,
+                    fee_mint: mints[i],
+                }
+            })
+            .collect();
+        Route {
+            input_mint: mints[0],
+            output_mint: mints[2],
+            in_amount: 100,
+            out_amount: 600,
+            price_impact_bps: None,
+            steps,
+            slot: 1,
+            accounts: Some(HashMap::new()),
+        }
+    }
+
+    #[test]
+    fn thresholds_preserve_large_integer_amounts_and_round_in_the_users_favor() {
+        assert_eq!(super::amount_threshold(u64::MAX, 1, false).unwrap(),
+            (u128::from(u64::MAX) * 9_999 / 10_000) as u64);
+        assert_eq!(super::amount_threshold(1, 1, true).unwrap(), 2);
+        assert_eq!(super::amount_threshold(10_001, 1, false).unwrap(), 9_999);
+        assert!(super::amount_threshold(u64::MAX, 1, true).is_err());
+        assert!(super::amount_threshold(10, 10_000, false).is_err());
+    }
+
+    #[test]
+    fn fresh_exact_in_replaces_stale_intermediate_amounts() {
+        let result =
+            refresh_before_build(route(), Arc::new(NoAccounts), SwapMode::ExactIn, 590, 100)
+                .unwrap();
+        assert_eq!(
+            (result.steps[0].in_amount, result.steps[0].out_amount),
+            (100, 200)
+        );
+        assert_eq!(
+            (result.steps[1].in_amount, result.steps[1].out_amount),
+            (200, 600)
+        );
+        assert_eq!(result.out_amount, 600);
+        assert!(result.accounts.is_none());
+    }
+
+    #[test]
+    fn fresh_exact_in_rejects_output_below_authorized_minimum() {
+        let error =
+            refresh_before_build(route(), Arc::new(NoAccounts), SwapMode::ExactIn, 601, 100)
+                .err()
+                .unwrap();
+        assert!(error.to_string().contains("minimum output"));
+    }
+
+    #[test]
+    fn fresh_exact_out_works_backwards_and_enforces_maximum_spend() {
+        let result =
+            refresh_before_build(route(), Arc::new(NoAccounts), SwapMode::ExactOut, 150, 100)
+                .unwrap();
+        assert_eq!(result.in_amount, 100);
+        assert_eq!(result.steps[1].in_amount, 200);
+        assert_eq!(result.out_amount, 600);
+        let error =
+            refresh_before_build(route(), Arc::new(NoAccounts), SwapMode::ExactOut, 99, 100)
+                .err()
+                .unwrap();
+        assert!(error.to_string().contains("maximum input"));
+    }
+
+    #[test]
+    fn malformed_route_and_unbounded_slippage_fail_before_build() {
+        for tolerance in [-1, 10000, i32::MAX] {
+            assert!(refresh_before_build(
+                route(),
+                Arc::new(NoAccounts),
+                SwapMode::ExactIn,
+                1,
+                tolerance
+            )
+            .is_err());
+        }
+        let mut disconnected = route();
+        disconnected.output_mint = Pubkey::new_unique();
+        assert!(
+            refresh_before_build(disconnected, Arc::new(NoAccounts), SwapMode::ExactIn, 1, 10)
+                .is_err()
+        );
+        let mut repeated = route();
+        repeated.steps.push(repeated.steps[0].clone());
+        assert!(
+            refresh_before_build(repeated, Arc::new(NoAccounts), SwapMode::ExactIn, 1, 10).is_err()
+        );
+        assert!(
+            refresh_before_build(route(), Arc::new(NoAccounts), SwapMode::ExactIn, 0, 10).is_err()
+        );
+    }
 }

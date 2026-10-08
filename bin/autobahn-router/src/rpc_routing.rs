@@ -607,16 +607,18 @@ impl RpcRouteProvider {
                         }
                     }
                     Err(error) => {
-                        let mut cache = self.watched.lock().unwrap();
-                        for root in &roots {
-                            if let Some(entry) = cache.entries.get_mut(root) {
-                                entry.last_attempt = Some(Instant::now());
-                                entry.error = Some(redacted_discovery_error(&error));
+                        // Scope the std mutex guard so the future stays Send across the await below.
+                        {
+                            let mut cache = self.watched.lock().unwrap();
+                            for root in &roots {
+                                if let Some(entry) = cache.entries.get_mut(root) {
+                                    entry.last_attempt = Some(Instant::now());
+                                    entry.error = Some(redacted_discovery_error(&error));
+                                }
                             }
                         }
                         warn!(error=%redacted_discovery_error(&error), roots=roots.len(), "Root discovery failed; retaining healthy snapshots");
                         *last = Instant::now();
-                        drop(cache);
                         if changed {
                             self.publish_graph().await?;
                         }

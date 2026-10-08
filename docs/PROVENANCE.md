@@ -1,6 +1,6 @@
 # Provenance: the router, liquidity operations, FTL and program discovery
 
-Evidence cutoff: **2026-10-08 03:35 UTC / 2026-10-07 23:35 America/Toronto**, including newly published mainnet receipts. Repository and service inventory was performed on October 7, 2026. Later deployments or funded transactions should be appended with their own receipts rather than inferred from this document.
+Evidence cutoff: **2026-10-08 04:12 UTC / 2026-10-08 00:12 America/Toronto**, including newly published mainnet receipts. Repository and service inventory was performed on October 7, 2026. Later deployments or funded transactions should be appended with their own receipts rather than inferred from this document.
 
 The current release joins several previously separate lines of work: Solana route execution, permissionless LST conversion, EVM quote/requote and operation planning, program/IDL discovery, recursive DBC markets, and FTL's real-time liquidity feed. The new integration makes an observed event actionable through a wallet-bound quote, transaction review, execution and position view. It does not make every historical component newly authored here, nor establish that every older service remains live.
 
@@ -248,6 +248,36 @@ The receipt preserves the reviewed request/quote, V1 version, simulation, owner,
 
 The same commit publishes a [new LST program deployment receipt](lst-deployment-mainnet.json): program `5f7YRhNMtZxAANQQV4B78keMFGiz8gTvAHA4p3Dj3kLp`, [deployment transaction](https://solscan.io/tx/4hgSvfSyjJi6xEyJpKeKb3HuC2s6XQ5LQV642XwaxQzxWrJ1idyuXtXC8scMmF8atG1UYYjM5N7dgbWC2gMvQ225), finalized at slot 454422155, observed executable under the upgradeable loader, binary SHA-256 `4cdac0b2f8c0079006121d13071315600b2c52ad51c515ff6f0de819598cd3c5`. A deployed executable is a concrete milestone; initialization, route availability and a successful staking/conversion lifecycle require separate receipts.
 
+### All eight venues funded on mainnet (October 8, 2026, 00:00–00:12 Toronto / 04:00–04:12 UTC)
+
+After the PumpSwap lifecycle, the remaining seven venues were executed on mainnet through the same path: FTL HTTP API on the development host → Rust router HTTP API deployed at `liquidityxyz-router.fly.dev` (Fly release v1, built from the `rpc_routing.rs` graph-publication change in this commit) → LiquidityEngine → wallet signature → FTL RPC proxy → mainnet. Meteora DAMM v1 and DAMM v2 created new pools; DLMM, Raydium CPMM, AMM v4, CLMM and Orca used existing public SOL/USDC pools because CPMM and AMM v4 pool creation each cost 0.15 SOL and the sample wallet held under 0.5 SOL. Every add was withdrawn in full by its remove. The complete ledger, including requests, quotes, simulations, fees and token balance changes, is [mainnet-receipts.json](mainnet-receipts.json).
+
+| Venue | Operation | Pool | Slot | Wallet debit (SOL) | Confirmed mainnet transaction |
+| --- | --- | --- | --- | --- | --- |
+| PumpSwap | initialize | `7GZHLdhv…` | 454423617 | 0.007693220 | https://solscan.io/tx/3P43McddpWKZCJXYddYonUoyDvXVAW8BBciCrj7ghhC6vCTi6XjkSjXVdHDMMzTrjhkuNvVLjxn8z7PEN4vTEP4w |
+| PumpSwap | add | `7GZHLdhv…` | 454423729 | 0.000098620 | https://solscan.io/tx/4ekNaABGkatd7B63bobqnNvMwYPFWbSKrSWoVTzda7KmMNeuyBNnSbpdhQMdSqgTWrx2NevD3Jg8Q5ER5VRmWmM9 |
+| PumpSwap | remove | `7GZHLdhv…` | 454424292 | 0.000002292 | https://solscan.io/tx/3CmW7kY9DyJ9kuNBLnaUxtaCTmRLSocCrh22bdMPb1gwJw99HBZ7xWk4G7ZTjeV5gHXEiYYW2VQN96y2gaVnLC2s |
+| Meteora DAMM v1 | initialize | `2E15yqhc…` | 454425275 | 0.038710680 | https://solscan.io/tx/3vvzRPMNn2dfwdACMAX67A8gDF2MLxnnBq9fXWn8xsZHAHXpd4Jy8vmDMCHiajF8xHCjKTe6iD3aqKPxDqEkBdet |
+| Meteora DAMM v1 | add | `2E15yqhc…` | 454425592 | 0.000000000 | https://solscan.io/tx/E7LZQwwU7bPW7H9csyobrMagGY82dDkRAsbcFj9Y4krrMZ7X3cLzybik4CGgAX8cW4YphY7sjzM6XYijUCUufhp |
+| Meteora DAMM v1 | remove | `2E15yqhc…` | 454425658 | 0.000000000 | https://solscan.io/tx/2aAm8MsD9hSTqhBqFAaQnLxa619dBt7Je3oqo9wpRBnCoEmNLDBXy8icvJrtzNUeTRJvn7ZbVjfiJJf61GnwCmbn |
+| Meteora DAMM v2 | initialize | `3Kphxamd…` | 454425777 | 0.018022280 | https://solscan.io/tx/3TPPR2opvQM5JPRCvrwF6NHYrHjK9TUokKwogQUnW61Hv5JxSuqK5VH1YUDQPaFcyBBmrMUkKuQkhxcJSi9K7opV |
+| Meteora DAMM v2 | add | `3Kphxamd…` | 454426009 | 0.000000000 | https://solscan.io/tx/WawyHaxUa8Zf6k54EHNxdRe47oMvVsEg8Lke5cWnV4UNtYhfERKQPHRG9t9yanHZmyZ6mynGU9Qc5ttzJcFmH76 |
+| Meteora DAMM v2 | remove | `3Kphxamd…` | 454426260 | 0.000000000 | https://solscan.io/tx/5JH6auTBVZHrWqXSYjUyHYp1FnhAZg8P94GWXVUCBejqeDBdf6o3ok9wxpFn93B7ai1JPK73Ag5YVRJJFxAp5eNh |
+| Meteora DLMM | add | `GNY3YbGq…` | 454426515 | 0.041923840 | https://solscan.io/tx/2yFMC7giC2pzqRspLgRAjJCEtsHyMM25XpUdwCe1X6njL3DupiQx83ebX5Xkvzide5W5hRVJmfErNLPbuXHTK6iZ |
+| Meteora DLMM | remove | `GNY3YbGq…` | 454427339 | 0.000019000 | https://solscan.io/tx/5gavtNchoPrrkGhXyGGZrd7M5F1kWVTYxxcN6NED4fobaSpHGJBzgCsEJFDRfPjPQchA1n3WjZYoPigh1VcFrmia |
+| Raydium CPMM | add | `fAjTnZ9Q…` | 454427826 | 0.003004507 | https://solscan.io/tx/5HW9L8YdEKaoKPSGPfsW98nnDV3SBYXmzmKypGuFseXreh4Up6HTtueU2pbCE5ZfF9haCsCg6y1VtCxVQYGjT3sY |
+| Raydium CPMM | remove | `fAjTnZ9Q…` | 454428165 | 0.000019000 | https://solscan.io/tx/2ZeWUc2NeL5sQu4fBNsNGdfzMVh4wFsYuuW2PzUvPsPkjnGxpHQ17GDHdZaS3JoiaZqkeEsYevUFTqb4QEus5LFn |
+| Raydium AMM v4 | add | `S2MiN5qm…` | 454428841 | 0.001520970 | https://solscan.io/tx/CSeUaG2PAktvs9jstogBbYaDgUwPJNtm3jrjtR3MCXGVqNtoWUXZotvL7MVDEBMSSwdyq8iycL5HkEHLd2n2BM4 |
+| Raydium AMM v4 | remove | `S2MiN5qm…` | 454430461 | 0.000019000 | https://solscan.io/tx/63U3CynyVKiNoTu7WHqj4h7S3cqVD5ERVhka84cUdjFXhJsmcyuK2d26nYWxF42uasdq2rEDb8frnArxC5BVd7cU |
+| Raydium CLMM | add | `2JtkunkY…` | 454430485 | 0.004682180 | https://solscan.io/tx/6VGE5gUD8odZSdCzjp1aDzQhRBDibisBj1zrECmdi5DXHYgxtzCgMUdjs58jTTEj7HzzMB8tivkezxrTHZAFUGV |
+| Raydium CLMM | remove | `2JtkunkY…` | 454430563 | 0.000019000 | https://solscan.io/tx/4gSDtvStxSaqVVnfbHMEMWXVZCBTs9nVNpfWXHnFqx9HfKWS13baRWR21J9RBn4ibRodqTvLAoqxwhLz89yCkDR8 |
+| Orca Whirlpools | add | `21gTfxAn…` | 454430519 | 0.006546142 | https://solscan.io/tx/2r5ViD4DLBRD5LabddNCvubr587NmL4e1dgQfucdajXDcobspnkqFNt579e5wBt7QAjeZzsFKUv1GSuUo8QtBzEp |
+| Orca Whirlpools | remove | `21gTfxAn…` | 454430606 | 0.000015379 | https://solscan.io/tx/NwTDGCp4BkDFxzp3YR46YF1ibbdSyEkuAG6wNLhhZiB87UPaUg6vMyXQhg7gGGB7jR4ACUoar1FKuFBY6RugkT5 |
+
+Total wallet debit for the 19 LP receipts: 0.122296110 SOL, most of it DAMM v1 pool rent and DLMM position/bin-array rent that the protocol does not refund on withdrawal.
+
+This upgrades the claim in the table above: funded mainnet add/remove is now established for all eight venues, and funded initialize for three. Raydium, Orca and DLMM initialize remain proven only in the isolated SVM run. The browser-wallet signing pass is still a separate, unproven claim.
+
 ## 9. Automatic admission is the governance mechanism
 
 The user's requirement is explicit: an adapter passing the required machine checks should be admitted, merged and deployed without an individual venue needing political sponsorship or a manual approval queue. The relevant new work is the admission contract and trusted execution evidence, not a claim to have invented the underlying AMMs.
@@ -258,7 +288,7 @@ The root registry/CI policy remains separate from candidate adapter changes. Thi
 
 ## What can be claimed, and what still needs a separate receipt
 
-**Supported by this record:** years of distinct program/IDL experiments; an April 2025 Autobahn/Launchpad iteration; September 2026 permissionless LST and shipped Composer records; October EVM route/operation and FTL feed iterations; hook-aware launch/liquidity work; recursive DBC execution integration; eight common LP-operation adapters; actual V1 handling; the complete 24-action local execution proof; a funded mainnet PumpSwap lifecycle; and a new finalized LST program deployment.
+**Supported by this record:** years of distinct program/IDL experiments; an April 2025 Autobahn/Launchpad iteration; September 2026 permissionless LST and shipped Composer records; October EVM route/operation and FTL feed iterations; hook-aware launch/liquidity work; recursive DBC execution integration; eight common LP-operation adapters; actual V1 handling; the complete 24-action local execution proof; funded mainnet add/remove receipts for all eight LP venues (with initialize receipts for PumpSwap, DAMM v1 and DAMM v2); and a new finalized LST program deployment.
 
 **Not established here:** authorship of upstream Mango/Fill.city, OKX, Uniswap, S/Sanctum or venue SDK code; a presently reachable Composer service or recovered learning implementation; a verified active historical LST bridge deployment; funded creation of the nested CPMM planner's proposed pools; support for every token extension/venue mode; native embedded-wallet end-to-end support; or a healthy production rollout merely because deployment files and tests exist.
 

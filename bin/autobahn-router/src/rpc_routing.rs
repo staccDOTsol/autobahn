@@ -22,7 +22,10 @@ use router_lib::{
 use solana_sdk::{account::AccountSharedData, commitment_config::CommitmentConfig};
 use std::{
     collections::VecDeque,
-    sync::Mutex,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Mutex,
+    },
     time::{Duration, Instant},
 };
 
@@ -317,18 +320,22 @@ impl RouterRpcClientTrait for BoundedDiscoveryRpc {
         let minimum_slot = listed.iter().map(|a| a.slot).max().unwrap_or(0);
         let keys: Vec<_> = listed.into_iter().map(|a| a.pubkey).collect();
         let mut hydrated = Vec::with_capacity(keys.len());
-        let batches = keys.chunks(100).map(|chunk| chunk.to_vec());
+        // Materialize owned batches before the async stream: Rust 1.76 cannot
+        // prove the borrowed slice iterator is Send through async_trait's box.
+        let batches: Vec<Vec<Pubkey>> = keys.chunks(100).map(<[Pubkey]>::to_vec).collect();
+        let rpc = self.hydration.clone();
+        let account_config = solana_client::rpc_config::RpcAccountInfoConfig {
+            encoding: Some(solana_account_decoder::UiAccountEncoding::Base64),
+            commitment: config.account_config.commitment,
+            min_context_slot: Some(
+                minimum_slot.max(config.account_config.min_context_slot.unwrap_or(0)),
+            ),
+            data_slice: None,
+        };
         let mut replies = stream::iter(batches)
-            .map(|chunk| {
-                let rpc = self.hydration.clone();
-                let account_config = solana_client::rpc_config::RpcAccountInfoConfig {
-                    encoding: Some(solana_account_decoder::UiAccountEncoding::Base64),
-                    commitment: config.account_config.commitment,
-                    min_context_slot: Some(
-                        minimum_slot.max(config.account_config.min_context_slot.unwrap_or(0)),
-                    ),
-                    data_slice: None,
-                };
+            .map(move |chunk| {
+                let rpc = rpc.clone();
+                let account_config = account_config.clone();
                 async move {
                     let reply = rpc
                         .get_multiple_accounts_with_config(&chunk, account_config)
@@ -421,14 +428,15 @@ impl RouterRpcClientTrait for PairDiscoveryRpc {
 }
 
 pub struct RpcRouteProvider {
-    graph: RwLock<Arc<Graph>>,
+    graph: Arc<RwLock<Arc<Graph>>>,
+    edge_count: Arc<AtomicUsize>,
     accounts: AccountProviderView,
     config: Config,
     refresh: tokio::sync::Mutex<Instant>,
     watched: Mutex<RootCache>,
     registered: Mutex<Option<(Instant, Vec<Arc<dyn DexInterface>>)>>,
     legacy: Mutex<LegacyCache>,
-    publish: Mutex<()>,
+    publish: tokio::sync::Mutex<()>,
 }
 impl RpcRouteProvider {
     fn rpc(&self) -> anyhow::Result<RouterRpcClient> {
@@ -465,10 +473,10 @@ impl RpcRouteProvider {
             gpa_compression_enabled: false,
         })
     }
-    fn publish_graph(&self) {
-        // Serialize publication, not network reads. The last publication always
-        // includes all completed root and venue snapshots, whichever finishes first.
-        let _publication = self.publish.lock().unwrap();
+    async fn publish_graph(&self) -> anyhow::Result<()> {
+        // Serialize publication asynchronously. Large snapshots must never block
+        // a Tokio worker or the short graph/readiness locks while being built.
+        let _publication = self.publish.lock().await;
         let mut dexs = Vec::new();
         {
             let roots = self.watched.lock().unwrap();
@@ -488,9 +496,24 @@ impl RpcRouteProvider {
             dexs.extend(registered.iter().cloned());
         }
         dexs.extend(self.legacy.lock().unwrap().adapters.values().cloned());
-        let graph = Graph::new(dexs);
-        info!(edges = graph.edges.len(), "Published routing graph");
-        *self.graph.write().unwrap() = Arc::new(graph);
+        let destination = self.graph.clone();
+        let edge_count = self.edge_count.clone();
+        tokio::task::spawn_blocking(move || {
+            let graph = Arc::new(Graph::new(dexs));
+            let count = graph.edges.len();
+            let retired = {
+                let mut current = destination.write().unwrap();
+                std::mem::replace(&mut *current, graph)
+            };
+            edge_count.store(count, Ordering::Relaxed);
+            info!(edges = count, "Published routing graph");
+            // Dropping millions of edges can take seconds. Neither health nor a
+            // quote taking a snapshot may wait for this destructor.
+            drop(retired);
+        })
+        .await
+        .context("Routing graph publication task failed")?;
+        Ok(())
     }
     async fn refresh(&self, force: bool) -> anyhow::Result<()> {
         let mut last = self.refresh.lock().await;
@@ -499,6 +522,7 @@ impl RpcRouteProvider {
         }
         *last = Instant::now(); // Errors and unknown roots cannot bypass throttling.
         let mut rpc = self.rpc()?;
+        let mut changed = false;
         let registry_due = self
             .registered
             .lock()
@@ -521,7 +545,10 @@ impl RpcRouteProvider {
             match adapter_registry::initialize(&mut rpc, &options, &self.config.disabled_adapters)
                 .await
             {
-                Ok(adapters) => *self.registered.lock().unwrap() = Some((Instant::now(), adapters)),
+                Ok(adapters) => {
+                    *self.registered.lock().unwrap() = Some((Instant::now(), adapters));
+                    changed = true;
+                }
                 Err(error) => {
                     if self.registered.lock().unwrap().is_none() {
                         return Err(error);
@@ -559,6 +586,7 @@ impl RpcRouteProvider {
                 .await
                 {
                     Ok(adapter) => {
+                        changed = true;
                         let mints: HashSet<_> = adapter
                             .edges_per_pk()
                             .into_values()
@@ -588,19 +616,20 @@ impl RpcRouteProvider {
                         }
                         warn!(error=%redacted_discovery_error(&error), roots=roots.len(), "Root discovery failed; retaining healthy snapshots");
                         *last = Instant::now();
-                        self.publish_after_unlock(cache);
+                        drop(cache);
+                        if changed {
+                            self.publish_graph().await?;
+                        }
                         return Err(error);
                     }
                 }
             }
         }
-        self.publish_graph();
+        if changed {
+            self.publish_graph().await?;
+        }
         *last = Instant::now();
         Ok(())
-    }
-    fn publish_after_unlock(&self, guard: std::sync::MutexGuard<'_, RootCache>) {
-        drop(guard);
-        self.publish_graph();
     }
     fn legacy_venues(&self) -> Vec<(&'static str, bool)> {
         vec![
@@ -687,6 +716,7 @@ impl RpcRouteProvider {
             Duration::from_secs(90),
         )
         .await;
+        let changed = result.is_ok();
         {
             let mut cache = self.legacy.lock().unwrap();
             match result {
@@ -702,7 +732,9 @@ impl RpcRouteProvider {
                 }
             }
         }
-        self.publish_graph();
+        if changed {
+            self.publish_graph().await?;
+        }
         if bootstrap {
             // All never-attempted venues get a turn before the full expansion.
             self.legacy
@@ -721,7 +753,7 @@ impl RpcRouteProvider {
         serde_json::json!({"venues":venues,"roots":roots.entries.len(),
             "pendingRoots":roots.entries.values().filter(|r|r.last_attempt.is_none()).count(),
             "failedRoots":roots.entries.values().filter(|r|r.error.is_some()).count(),
-            "edges":self.graph.read().unwrap().edges.len()})
+            "edges":self.edge_count.load(Ordering::Relaxed)})
     }
     fn graph_for(&self, from: Pubkey, to: Pubkey) -> anyhow::Result<Arc<Graph>> {
         let graph = self.graph.read().unwrap().clone();
@@ -976,6 +1008,7 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
     }
     let provider = Arc::new(RpcRouteProvider {
         graph: Default::default(),
+        edge_count: Default::default(),
         accounts: live.clone(),
         config: config.clone(),
         refresh: tokio::sync::Mutex::new(Instant::now() - Duration::from_secs(3600)),
@@ -984,7 +1017,6 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         registered: Default::default(),
         publish: Default::default(),
     });
-    provider.refresh(true).await?;
     let (exit, _) = tokio::sync::broadcast::channel(4);
     let (updates, _) = tokio::sync::broadcast::channel(4);
     let (prices, _) = router_lib::price_feeds::price_cache::PriceCache::new(
@@ -1039,7 +1071,8 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
     }
     let refresh = tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(refresh_seconds));
-        interval.tick().await;
+        // First tick runs immediately, after HTTP is serving. Discovery failures
+        // do not prevent health checks or independent LP operations from starting.
         loop {
             interval.tick().await;
             if let Err(e) = provider.refresh(false).await {

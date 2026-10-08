@@ -4,24 +4,76 @@ Built on the Fill.city/Mango Autobahn router, with direct recursive DBC routing,
 
 ## Mainnet execution receipts
 
-These are actual funded Solana mainnet transactions, not simulation signatures. The first PumpSwap initialize and add were quoted/requoted/built through the production LiquidityEngine and broadcast by a test wallet runner. Remove additionally passed through the FTL HTTP API, Rust router HTTP API, and FTL signed-transaction broadcast proxy. The HTTP services for this verification ran on the development host; this is not yet proof of the deployed browser flow.
+These are actual funded Solana mainnet transactions, not simulation signatures. Every one of the eight LP venues now has a confirmed add and remove on mainnet; PumpSwap, Meteora DAMM v1 and DAMM v2 also have a confirmed pool initialize. All receipts were quoted and built through the FTL HTTP API → Rust router HTTP API (deployed at `liquidityxyz-router.fly.dev`) → LiquidityEngine, signed by the sample wallet `331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth`, and broadcast through the FTL RPC proxy. The FTL HTTP service ran on the development host; the browser-wallet signing flow is still not covered by these receipts.
 
-| Action | Confirmed mainnet transaction |
-| --- | --- |
-| PumpSwap initialize | [3P43Mcdd…](https://solscan.io/tx/3P43McddpWKZCJXYddYonUoyDvXVAW8BBciCrj7ghhC6vCTi6XjkSjXVdHDMMzTrjhkuNvVLjxn8z7PEN4vTEP4w) |
-| PumpSwap add liquidity | [4ekNaABG…](https://solscan.io/tx/4ekNaABGkatd7B63bobqnNvMwYPFWbSKrSWoVTzda7KmMNeuyBNnSbpdhQMdSqgTWrx2NevD3Jg8Q5ER5VRmWmM9) |
-| PumpSwap remove liquidity | [3CmW7kY9…](https://solscan.io/tx/3CmW7kY9DyJ9kuNBLnaUxtaCTmRLSocCrh22bdMPb1gwJw99HBZ7xWk4G7ZTjeV5gHXEiYYW2VQN96y2gaVnLC2s) |
-| LST bridge deployment (separate from LP lifecycle) | [4hgSvfSy…](https://solscan.io/tx/4hgSvfSyjJi6xEyJpKeKb3HuC2s6XQ5LQV642XwaxQzxWrJ1idyuXtXC8scMmF8atG1UYYjM5N7dgbWC2gMvQ225) |
+| Venue | Operation | Pool | Slot | Wallet debit (SOL) | Confirmed mainnet transaction |
+| --- | --- | --- | --- | --- | --- |
+| PumpSwap | initialize | `7GZHLdhv…` | 454423617 | 0.007693220 | https://solscan.io/tx/3P43McddpWKZCJXYddYonUoyDvXVAW8BBciCrj7ghhC6vCTi6XjkSjXVdHDMMzTrjhkuNvVLjxn8z7PEN4vTEP4w |
+| PumpSwap | add | `7GZHLdhv…` | 454423729 | 0.000098620 | https://solscan.io/tx/4ekNaABGkatd7B63bobqnNvMwYPFWbSKrSWoVTzda7KmMNeuyBNnSbpdhQMdSqgTWrx2NevD3Jg8Q5ER5VRmWmM9 |
+| PumpSwap | remove | `7GZHLdhv…` | 454424292 | 0.000002292 | https://solscan.io/tx/3CmW7kY9DyJ9kuNBLnaUxtaCTmRLSocCrh22bdMPb1gwJw99HBZ7xWk4G7ZTjeV5gHXEiYYW2VQN96y2gaVnLC2s |
+| Meteora DAMM v1 | initialize | `2E15yqhc…` | 454425275 | 0.038710680 | https://solscan.io/tx/3vvzRPMNn2dfwdACMAX67A8gDF2MLxnnBq9fXWn8xsZHAHXpd4Jy8vmDMCHiajF8xHCjKTe6iD3aqKPxDqEkBdet |
+| Meteora DAMM v1 | add | `2E15yqhc…` | 454425592 | 0.000000000 | https://solscan.io/tx/E7LZQwwU7bPW7H9csyobrMagGY82dDkRAsbcFj9Y4krrMZ7X3cLzybik4CGgAX8cW4YphY7sjzM6XYijUCUufhp |
+| Meteora DAMM v1 | remove | `2E15yqhc…` | 454425658 | 0.000000000 | https://solscan.io/tx/2aAm8MsD9hSTqhBqFAaQnLxa619dBt7Je3oqo9wpRBnCoEmNLDBXy8icvJrtzNUeTRJvn7ZbVjfiJJf61GnwCmbn |
+| Meteora DAMM v2 | initialize | `3Kphxamd…` | 454425777 | 0.018022280 | https://solscan.io/tx/3TPPR2opvQM5JPRCvrwF6NHYrHjK9TUokKwogQUnW61Hv5JxSuqK5VH1YUDQPaFcyBBmrMUkKuQkhxcJSi9K7opV |
+| Meteora DAMM v2 | add | `3Kphxamd…` | 454426009 | 0.000000000 | https://solscan.io/tx/WawyHaxUa8Zf6k54EHNxdRe47oMvVsEg8Lke5cWnV4UNtYhfERKQPHRG9t9yanHZmyZ6mynGU9Qc5ttzJcFmH76 |
+| Meteora DAMM v2 | remove | `3Kphxamd…` | 454426260 | 0.000000000 | https://solscan.io/tx/5JH6auTBVZHrWqXSYjUyHYp1FnhAZg8P94GWXVUCBejqeDBdf6o3ok9wxpFn93B7ai1JPK73Ag5YVRJJFxAp5eNh |
+| Meteora DLMM | add | `GNY3YbGq…` | 454426515 | 0.041923840 | https://solscan.io/tx/2yFMC7giC2pzqRspLgRAjJCEtsHyMM25XpUdwCe1X6njL3DupiQx83ebX5Xkvzide5W5hRVJmfErNLPbuXHTK6iZ |
+| Meteora DLMM | remove | `GNY3YbGq…` | 454427339 | 0.000019000 | https://solscan.io/tx/5gavtNchoPrrkGhXyGGZrd7M5F1kWVTYxxcN6NED4fobaSpHGJBzgCsEJFDRfPjPQchA1n3WjZYoPigh1VcFrmia |
+| Raydium CPMM | add | `fAjTnZ9Q…` | 454427826 | 0.003004507 | https://solscan.io/tx/5HW9L8YdEKaoKPSGPfsW98nnDV3SBYXmzmKypGuFseXreh4Up6HTtueU2pbCE5ZfF9haCsCg6y1VtCxVQYGjT3sY |
+| Raydium CPMM | remove | `fAjTnZ9Q…` | 454428165 | 0.000019000 | https://solscan.io/tx/2ZeWUc2NeL5sQu4fBNsNGdfzMVh4wFsYuuW2PzUvPsPkjnGxpHQ17GDHdZaS3JoiaZqkeEsYevUFTqb4QEus5LFn |
+| Raydium AMM v4 | add | `S2MiN5qm…` | 454428841 | 0.001520970 | https://solscan.io/tx/CSeUaG2PAktvs9jstogBbYaDgUwPJNtm3jrjtR3MCXGVqNtoWUXZotvL7MVDEBMSSwdyq8iycL5HkEHLd2n2BM4 |
+| Raydium AMM v4 | remove | `S2MiN5qm…` | 454430461 | 0.000019000 | https://solscan.io/tx/63U3CynyVKiNoTu7WHqj4h7S3cqVD5ERVhka84cUdjFXhJsmcyuK2d26nYWxF42uasdq2rEDb8frnArxC5BVd7cU |
+| Raydium CLMM | add | `2JtkunkY…` | 454430485 | 0.004682180 | https://solscan.io/tx/6VGE5gUD8odZSdCzjp1aDzQhRBDibisBj1zrECmdi5DXHYgxtzCgMUdjs58jTTEj7HzzMB8tivkezxrTHZAFUGV |
+| Raydium CLMM | remove | `2JtkunkY…` | 454430563 | 0.000019000 | https://solscan.io/tx/4gSDtvStxSaqVVnfbHMEMWXVZCBTs9nVNpfWXHnFqx9HfKWS13baRWR21J9RBn4ibRodqTvLAoqxwhLz89yCkDR8 |
+| Orca Whirlpools | add | `21gTfxAn…` | 454430519 | 0.006546142 | https://solscan.io/tx/2r5ViD4DLBRD5LabddNCvubr587NmL4e1dgQfucdajXDcobspnkqFNt579e5wBt7QAjeZzsFKUv1GSuUo8QtBzEp |
+| Orca Whirlpools | remove | `21gTfxAn…` | 454430606 | 0.000015379 | https://solscan.io/tx/NwTDGCp4BkDFxzp3YR46YF1ibbdSyEkuAG6wNLhhZiB87UPaUg6vMyXQhg7gGGB7jR4ACUoar1FKuFBY6RugkT5 |
 
-PumpSwap lifecycle pool: `7GZHLdhvZN1NSutNt1BJs5S9ArBobAdCvyGzwPo22LHA`. The three LP transactions consumed 0.007794132 SOL net across their wallet debits, including account rent. A small amount of initial liquidity remains permanently locked by the native protocol. [Machine-readable receipts, reviewed bounds and token balances](docs/mainnet-receipts.json).
+Total wallet debit across all 19 LP receipts (including rent that the removes do not refund): 0.122296110 SOL. Pool creation on Raydium CPMM and AMM v4 costs 0.15 SOL each, so those venues and DLMM, CLMM and Orca used existing public SOL/USDC pools instead of new ones; the deposits were micro-sized and withdrawn in full.
 
-LST program: `5f7YRhNMtZxAANQQV4B78keMFGiz8gTvAHA4p3Dj3kLp`. [Finalized deployment and binary hash](docs/lst-deployment-mainnet.json). Deployment alone does not prove mainnet LST deposit/redemption.
+Pools used:
+- PumpSwap: `7GZHLdhvZN1NSutNt1BJs5S9ArBobAdCvyGzwPo22LHA`
+- Meteora DAMM v1: `2E15yqhc8jBGpWfCXZjibB2qj7EDjp5A4x8NSk4363jd`
+- Meteora DAMM v2: `3KphxamdB1apYohQStGATZrKGpk7Yf31G9H18Gpp8He7`
+- Meteora DLMM: `GNY3YbGqdhZv8R3kD2NRJQ4NLD6tb3PPthJ2mpUR89Lc`
+- Raydium CPMM: `fAjTnZ9QqJkUmrr8cXutkYhpVge2qqtSZNt9qKn7YC2`
+- Raydium AMM v4: `S2MiN5qmiRS8HBQMXcdJUhLwrBgX9P3naDuo4GkQ63t`
+- Raydium CLMM: `2JtkunkYCRbe5YZuGU6kLFmNwN22Ba1pCicHoqW5Eqja`
+- Orca Whirlpools: `21gTfxAnhUDjJGZJDkTXctGFKT8TeiXx6pN1CEg9K1uW`
+
+Plain-text links:
+
+```text
+PumpSwap initialize: https://solscan.io/tx/3P43McddpWKZCJXYddYonUoyDvXVAW8BBciCrj7ghhC6vCTi6XjkSjXVdHDMMzTrjhkuNvVLjxn8z7PEN4vTEP4w
+PumpSwap add: https://solscan.io/tx/4ekNaABGkatd7B63bobqnNvMwYPFWbSKrSWoVTzda7KmMNeuyBNnSbpdhQMdSqgTWrx2NevD3Jg8Q5ER5VRmWmM9
+PumpSwap remove: https://solscan.io/tx/3CmW7kY9DyJ9kuNBLnaUxtaCTmRLSocCrh22bdMPb1gwJw99HBZ7xWk4G7ZTjeV5gHXEiYYW2VQN96y2gaVnLC2s
+Meteora DAMM v1 initialize: https://solscan.io/tx/3vvzRPMNn2dfwdACMAX67A8gDF2MLxnnBq9fXWn8xsZHAHXpd4Jy8vmDMCHiajF8xHCjKTe6iD3aqKPxDqEkBdet
+Meteora DAMM v1 add: https://solscan.io/tx/E7LZQwwU7bPW7H9csyobrMagGY82dDkRAsbcFj9Y4krrMZ7X3cLzybik4CGgAX8cW4YphY7sjzM6XYijUCUufhp
+Meteora DAMM v1 remove: https://solscan.io/tx/2aAm8MsD9hSTqhBqFAaQnLxa619dBt7Je3oqo9wpRBnCoEmNLDBXy8icvJrtzNUeTRJvn7ZbVjfiJJf61GnwCmbn
+Meteora DAMM v2 initialize: https://solscan.io/tx/3TPPR2opvQM5JPRCvrwF6NHYrHjK9TUokKwogQUnW61Hv5JxSuqK5VH1YUDQPaFcyBBmrMUkKuQkhxcJSi9K7opV
+Meteora DAMM v2 add: https://solscan.io/tx/WawyHaxUa8Zf6k54EHNxdRe47oMvVsEg8Lke5cWnV4UNtYhfERKQPHRG9t9yanHZmyZ6mynGU9Qc5ttzJcFmH76
+Meteora DAMM v2 remove: https://solscan.io/tx/5JH6auTBVZHrWqXSYjUyHYp1FnhAZg8P94GWXVUCBejqeDBdf6o3ok9wxpFn93B7ai1JPK73Ag5YVRJJFxAp5eNh
+Meteora DLMM add: https://solscan.io/tx/2yFMC7giC2pzqRspLgRAjJCEtsHyMM25XpUdwCe1X6njL3DupiQx83ebX5Xkvzide5W5hRVJmfErNLPbuXHTK6iZ
+Meteora DLMM remove: https://solscan.io/tx/5gavtNchoPrrkGhXyGGZrd7M5F1kWVTYxxcN6NED4fobaSpHGJBzgCsEJFDRfPjPQchA1n3WjZYoPigh1VcFrmia
+Raydium CPMM add: https://solscan.io/tx/5HW9L8YdEKaoKPSGPfsW98nnDV3SBYXmzmKypGuFseXreh4Up6HTtueU2pbCE5ZfF9haCsCg6y1VtCxVQYGjT3sY
+Raydium CPMM remove: https://solscan.io/tx/2ZeWUc2NeL5sQu4fBNsNGdfzMVh4wFsYuuW2PzUvPsPkjnGxpHQ17GDHdZaS3JoiaZqkeEsYevUFTqb4QEus5LFn
+Raydium AMM v4 add: https://solscan.io/tx/CSeUaG2PAktvs9jstogBbYaDgUwPJNtm3jrjtR3MCXGVqNtoWUXZotvL7MVDEBMSSwdyq8iycL5HkEHLd2n2BM4
+Raydium AMM v4 remove: https://solscan.io/tx/63U3CynyVKiNoTu7WHqj4h7S3cqVD5ERVhka84cUdjFXhJsmcyuK2d26nYWxF42uasdq2rEDb8frnArxC5BVd7cU
+Raydium CLMM add: https://solscan.io/tx/6VGE5gUD8odZSdCzjp1aDzQhRBDibisBj1zrECmdi5DXHYgxtzCgMUdjs58jTTEj7HzzMB8tivkezxrTHZAFUGV
+Raydium CLMM remove: https://solscan.io/tx/4gSDtvStxSaqVVnfbHMEMWXVZCBTs9nVNpfWXHnFqx9HfKWS13baRWR21J9RBn4ibRodqTvLAoqxwhLz89yCkDR8
+Orca Whirlpools add: https://solscan.io/tx/2r5ViD4DLBRD5LabddNCvubr587NmL4e1dgQfucdajXDcobspnkqFNt579e5wBt7QAjeZzsFKUv1GSuUo8QtBzEp
+Orca Whirlpools remove: https://solscan.io/tx/NwTDGCp4BkDFxzp3YR46YF1ibbdSyEkuAG6wNLhhZiB87UPaUg6vMyXQhg7gGGB7jR4ACUoar1FKuFBY6RugkT5
+```
+
+[Machine-readable receipts with request, quote, simulation, fees and token balance changes](docs/mainnet-receipts.json).
+
+LST program: `5f7YRhNMtZxAANQQV4B78keMFGiz8gTvAHA4p3Dj3kLp`, deployment https://solscan.io/tx/4hgSvfSyjJi6xEyJpKeKb3HuC2s6XQ5LQV642XwaxQzxWrJ1idyuXtXC8scMmF8atG1UYYjM5N7dgbWC2gMvQ225. [Finalized deployment and binary hash](docs/lst-deployment-mainnet.json), [on-chain bytecode verification](docs/lst-bridge-verification-mainnet.json). Deployment alone does not prove mainnet LST deposit/redemption.
 
 ## Verification status
 
-- Eight LP implementations: Raydium CPMM, CLMM, AMM v4; Orca Whirlpools; Meteora DAMM v1, DAMM v2, DLMM; PumpSwap.
-- All 24 initialize/add/remove operations executed successfully under an isolated Agave validator using pinned mainnet program binaries and synthetic balances. [Execution evidence](lib/liquidity-operations/worker/test/svm/verified-lifecycle.json), [reproduction instructions](lib/liquidity-operations/worker/test/svm/README.md). These are separate from the mainnet receipts above.
-- Worker regression suite: 34 passed. Mainnet coverage for the other seven venue lifecycles is still being gathered; eight implementations does not mean eight mainnet-verified lifecycles.
+- Eight LP implementations: Raydium CPMM, CLMM, AMM v4; Orca Whirlpools; Meteora DAMM v1, DAMM v2, DLMM; PumpSwap. **All eight have funded mainnet add/remove receipts above.**
+- All 24 initialize/add/remove operations also executed successfully under an isolated Agave validator using pinned mainnet program binaries and synthetic balances. [Execution evidence](lib/liquidity-operations/worker/test/svm/verified-lifecycle.json), [reproduction instructions](lib/liquidity-operations/worker/test/svm/README.md).
+- Worker regression suite: 36 passed.
+- Mainnet initialize receipts exist for PumpSwap, DAMM v1 and DAMM v2 only. Raydium, Orca and DLMM initialize are proven in the local SVM run, not with funded mainnet receipts.
 - Automatic adapter admission and full deployed FTL browser verification are not yet established by these receipts.
 
 ---

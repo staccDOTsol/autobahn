@@ -65,5 +65,7 @@ take_all_mints = true
 [infinity]
 enabled = true
 
-# Stake-pool requires a live bridge and an independently verified bytecode hash.
-# Do not configure the historical closed bridge.
+# Verified against the finalized ProgramData bytes; see docs/lst-bridge-verification-mainnet.json.
+[adapters.stake-pool]
+bridge_program = "5f7YRhNMtZxAANQQV4B78keMFGiz8gTvAHA4p3Dj3kLp"
+bridge_program_sha256 = "4cdac0b2f8c0079006121d13071315600b2c52ad51c515ff6f0de819598cd3c5"

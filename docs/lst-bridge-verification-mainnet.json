@@ -1,0 +1,115 @@
+{
+  "verifiedAt": "2026-10-08T03:39:02.818Z",
+  "slot": 454426035,
+  "programId": "5f7YRhNMtZxAANQQV4B78keMFGiz8gTvAHA4p3Dj3kLp",
+  "programData": "8m946S9k3NhtzMmwoCzLiAEyNWCotPJVh6DBcyDjtWmh",
+  "deploymentSlot": "454422155",
+  "upgradeAuthority": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+  "chainExecutableBytes": 403000,
+  "localElfBytes": 403000,
+  "chainExecutableSha256": "4cdac0b2f8c0079006121d13071315600b2c52ad51c515ff6f0de819598cd3c5",
+  "localElfSha256": "4cdac0b2f8c0079006121d13071315600b2c52ad51c515ff6f0de819598cd3c5",
+  "exactMatch": true,
+  "prefixMatch": true,
+  "trailingBytes": 0,
+  "trailingZero": true,
+  "source": {
+    "repository": "solana-liquidity-engine",
+    "commit": "50c64119edebbb8c72d0ddceb4ee1f25e2d673ca",
+    "files": {
+      "program/src/instruction.rs": {
+        "sha256": "45e759c1cc05795ddad1bf4894393eac1d6b0ecf5622c08f0df48d0874e955be",
+        "matchesPinnedSource": true
+      },
+      "program/src/router.rs": {
+        "sha256": "6dc7a5423e03648142fd3111dfcb4a94473dd0074b993be6e6cfbfa931886617",
+        "matchesPinnedSource": true
+      }
+    }
+  },
+  "abi": {
+    "mintTag": 34,
+    "redeemTag": 35,
+    "dataBytes": 17,
+    "amountEncoding": "u64 little-endian",
+    "minimumOutputEncoding": "u64 little-endian",
+    "mintAccountCount": 17,
+    "redeemAccountCount": 15,
+    "adapter": "lib/dex-stake-pool/src/bridge.rs"
+  },
+  "readOnlyRouterVerification": {
+    "scope": "Actual Rust router /quote and /swap with the deployed bridge; mainnet simulateTransaction only. No funded signature or broadcast. Isolated test config selects one real pool; production discovery remains unrestricted.",
+    "pool": "SzoSoRxsrL9sbFcwpbjbH5bRrzuvFtuytZTeuqZCfQ6",
+    "mint": "pSYRpDqr847kB2nD5ZhjcPsHLV2ZpUxweXm1MwiSTcc",
+    "operations": {
+      "mint": {
+        "preparedAt": "2026-10-08T03:44:33.681Z",
+        "transactionVersion": "1",
+        "quoteContextSlot": 454427289,
+        "simulationContextSlot": 454427299,
+        "inputRaw": "10000",
+        "outputRaw": "9961",
+        "minimumOutputRaw": "9861",
+        "unitsConsumed": 76002,
+        "error": null,
+        "economics": [
+          {
+            "address": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+            "lamportsBefore": 375763391,
+            "lamportsAfter": 375748390,
+            "tokenBefore": null,
+            "tokenAfter": null
+          },
+          {
+            "address": "6Jrrws5TmFTb4eCa63A4yNnaSCC62yvvHYspK3KW4SEd",
+            "lamportsBefore": 1488440,
+            "lamportsAfter": 1488440,
+            "tokenBefore": "12733318",
+            "tokenAfter": "12743279"
+          },
+          {
+            "address": "DrfWXM7aEjsYNBCYHWRv57aor2etiuum97HedhcPmPdu",
+            "lamportsBefore": 0,
+            "lamportsAfter": 0,
+            "tokenBefore": null,
+            "tokenAfter": null
+          }
+        ]
+      },
+      "redeem": {
+        "preparedAt": "2026-10-08T03:44:56.679Z",
+        "transactionVersion": "1",
+        "quoteContextSlot": 454427340,
+        "simulationContextSlot": 454427386,
+        "inputRaw": "10000",
+        "outputRaw": "10018",
+        "minimumOutputRaw": "9917",
+        "unitsConsumed": 65995,
+        "error": null,
+        "economics": [
+          {
+            "address": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+            "lamportsBefore": 375744391,
+            "lamportsAfter": 375749408,
+            "tokenBefore": null,
+            "tokenAfter": null
+          },
+          {
+            "address": "6Jrrws5TmFTb4eCa63A4yNnaSCC62yvvHYspK3KW4SEd",
+            "lamportsBefore": 1488440,
+            "lamportsAfter": 1488440,
+            "tokenBefore": "12733318",
+            "tokenAfter": "12723318"
+          },
+          {
+            "address": "DrfWXM7aEjsYNBCYHWRv57aor2etiuum97HedhcPmPdu",
+            "lamportsBefore": 0,
+            "lamportsAfter": 0,
+            "tokenBefore": null,
+            "tokenAfter": null
+          }
+        ]
+      }
+    }
+  }
+}

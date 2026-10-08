@@ -175,7 +175,8 @@ fn provider(
     });
     (
         RpcRouteProvider {
-            graph: RwLock::new(Arc::new(Graph::new(vec![dex]))),
+            graph: Arc::new(RwLock::new(Arc::new(Graph::new(vec![dex])))),
+            edge_count: Arc::new(AtomicUsize::new(0)),
             accounts: Arc::new(ChangingAccounts(AtomicU64::new(0))),
             config,
             refresh: tokio::sync::Mutex::new(Instant::now()),

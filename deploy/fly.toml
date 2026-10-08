@@ -20,9 +20,9 @@ kill_timeout = "30s"
     soft_limit = 40
     hard_limit = 60
 [[vm]]
-  cpu_kind = "shared"
-  cpus = 2
-  memory = "2gb"
+  cpu_kind = "performance"
+  cpus = 8
+  memory = "16gb"
 [[http_service.checks]]
   interval = "30s"
   timeout = "5s"

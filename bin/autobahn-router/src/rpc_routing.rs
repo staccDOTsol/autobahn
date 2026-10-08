@@ -250,6 +250,115 @@ struct LegacyCache {
     bootstrapped: HashSet<&'static str>,
 }
 
+// Enumerate keys without account data, then hydrate at most four 100-account
+// replies at a time. Full GPA bodies otherwise duplicate hundreds of MB through
+// JSON, base64, decoded account, and adapter layers during each venue refresh.
+struct BoundedDiscoveryRpc {
+    inner: RouterRpcClient,
+    hydration: Arc<solana_client::nonblocking::rpc_client::RpcClient>,
+}
+fn hydrated_discovery_account(
+    program: &Pubkey,
+    config: &solana_client::rpc_config::RpcProgramAccountsConfig,
+    account: solana_sdk::account::Account,
+) -> Option<solana_sdk::account::Account> {
+    if account.owner != *program || account.executable {
+        return None;
+    }
+    if config.filters.as_ref().is_some_and(|filters| {
+        let shared = AccountSharedData::from(account.clone());
+        !filters.iter().all(|filter| filter.allows(&shared))
+    }) {
+        return None;
+    }
+    let mut account = account;
+    if let Some(slice) = &config.account_config.data_slice {
+        account.data = account
+            .data
+            .get(slice.offset..)
+            .unwrap_or_default()
+            .iter()
+            .take(slice.length)
+            .copied()
+            .collect();
+    }
+    Some(account)
+}
+#[async_trait::async_trait]
+impl RouterRpcClientTrait for BoundedDiscoveryRpc {
+    async fn get_account(
+        &mut self,
+        key: &Pubkey,
+    ) -> anyhow::Result<Option<solana_sdk::account::Account>> {
+        self.inner.get_account(key).await
+    }
+    async fn get_multiple_accounts(
+        &mut self,
+        keys: &HashSet<Pubkey>,
+    ) -> anyhow::Result<Vec<(Pubkey, solana_sdk::account::Account)>> {
+        self.inner.get_multiple_accounts(keys).await
+    }
+    async fn get_program_accounts_with_config(
+        &mut self,
+        program: &Pubkey,
+        config: solana_client::rpc_config::RpcProgramAccountsConfig,
+    ) -> anyhow::Result<Vec<router_feed_lib::account_write::AccountWrite>> {
+        use futures::{stream, StreamExt};
+        use router_feed_lib::account_write::{account_write_from, SNAP_ACCOUNT_WRITE_VERSION};
+        let mut enumeration = config.clone();
+        enumeration.account_config.data_slice = Some(solana_account_decoder::UiDataSliceConfig {
+            offset: 0,
+            length: 0,
+        });
+        let listed = self
+            .inner
+            .get_program_accounts_with_config(program, enumeration)
+            .await?;
+        let minimum_slot = listed.iter().map(|a| a.slot).max().unwrap_or(0);
+        let keys: Vec<_> = listed.into_iter().map(|a| a.pubkey).collect();
+        let mut hydrated = Vec::with_capacity(keys.len());
+        let batches = keys.chunks(100).map(|chunk| chunk.to_vec());
+        let mut replies = stream::iter(batches)
+            .map(|chunk| {
+                let rpc = self.hydration.clone();
+                let account_config = solana_client::rpc_config::RpcAccountInfoConfig {
+                    encoding: Some(solana_account_decoder::UiAccountEncoding::Base64),
+                    commitment: config.account_config.commitment,
+                    min_context_slot: Some(
+                        minimum_slot.max(config.account_config.min_context_slot.unwrap_or(0)),
+                    ),
+                    data_slice: None,
+                };
+                async move {
+                    let reply = rpc
+                        .get_multiple_accounts_with_config(&chunk, account_config)
+                        .await?;
+                    anyhow::Ok((chunk, reply))
+                }
+            })
+            .buffer_unordered(4);
+        while let Some(reply) = replies.next().await {
+            let (chunk, reply) = reply?;
+            for (key, value) in chunk.into_iter().zip(reply.value) {
+                if let Some(account) =
+                    value.and_then(|account| hydrated_discovery_account(program, &config, account))
+                {
+                    hydrated.push(account_write_from(
+                        key,
+                        reply.context.slot,
+                        SNAP_ACCOUNT_WRITE_VERSION,
+                        account,
+                    ));
+                }
+            }
+        }
+        Ok(hydrated)
+    }
+    fn is_gpa_compression_enabled(&self) -> bool {
+        false
+    }
+}
+
 // First publish a small, genuine SOL/USDC snapshot, then expand to every pool.
 // The mint filters only affect this bootstrap RPC wrapper, never ongoing discovery.
 struct PairDiscoveryRpc {
@@ -343,9 +452,15 @@ impl RpcRouteProvider {
         // Keep the trading RPC timeout unchanged, and bound the complete initializer below.
         source.request_timeout_in_seconds = Some(60);
         Ok(RouterRpcClient {
-            rpc: Box::new(RouterRpcWrapper {
-                rpc: super::build_rpc(&source),
-                gpa_compression_enabled: false,
+            rpc: Box::new(BoundedDiscoveryRpc {
+                inner: RouterRpcClient {
+                    rpc: Box::new(RouterRpcWrapper {
+                        rpc: super::build_rpc(&source),
+                        gpa_compression_enabled: false,
+                    }),
+                    gpa_compression_enabled: false,
+                },
+                hydration: Arc::new(super::build_rpc(&source)),
             }),
             gpa_compression_enabled: false,
         })

@@ -617,3 +617,48 @@ async fn initial_pair_snapshot_preserves_existing_filters_and_queries_both_orien
         .unwrap();
     assert_eq!(calls.lock().unwrap()[2].filters.as_ref().unwrap().len(), 1);
 }
+
+#[test]
+fn hydration_rechecks_owner_filters_and_applies_requested_slice_after_validation() {
+    use solana_client::{
+        rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
+        rpc_filter::{Memcmp, RpcFilterType},
+    };
+    let program = Pubkey::new_unique();
+    let config = RpcProgramAccountsConfig {
+        filters: Some(vec![
+            RpcFilterType::DataSize(4),
+            RpcFilterType::Memcmp(Memcmp::new_raw_bytes(1, vec![2, 3])),
+        ]),
+        account_config: RpcAccountInfoConfig {
+            data_slice: Some(solana_account_decoder::UiDataSliceConfig {
+                offset: 2,
+                length: 1,
+            }),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let account = solana_sdk::account::Account {
+        lamports: 1,
+        data: vec![1, 2, 3, 4],
+        owner: program,
+        executable: false,
+        rent_epoch: 0,
+    };
+    assert_eq!(
+        hydrated_discovery_account(&program, &config, account.clone())
+            .unwrap()
+            .data,
+        vec![3]
+    );
+    let mut changed = account.clone();
+    changed.owner = Pubkey::new_unique();
+    assert!(hydrated_discovery_account(&program, &config, changed).is_none());
+    let mut changed = account.clone();
+    changed.data[1] = 9;
+    assert!(hydrated_discovery_account(&program, &config, changed).is_none());
+    let mut changed = account;
+    changed.executable = true;
+    assert!(hydrated_discovery_account(&program, &config, changed).is_none());
+}

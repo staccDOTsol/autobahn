@@ -1,0 +1,897 @@
+{
+  "capturedAt": "2026-10-08T03:27:36.792Z",
+  "mainnetSlot": 454423460,
+  "programs": {
+    "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s": {
+      "sha256": "31f0a627dba051a938de650464e55cc5397a4be0fd496929c1f9cf02fe5e9011",
+      "bytes": 793991
+    },
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA": {
+      "sha256": "8190d3f7ceb6cb7a7a8d8924bff89f9f611e15ce1f806f2b6237f3311a98f697",
+      "bytes": 108600
+    },
+    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb": {
+      "sha256": "0999dbf708971e723b08d1caafc988826a59c6001ed6dc02260da07defbe1469",
+      "bytes": 1382016
+    },
+    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL": {
+      "sha256": "6804554e69fd3a58caa191dc4a58f4c67223d30ca28ab8987f39fc18d2f7374d",
+      "bytes": 105032
+    },
+    "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr": {
+      "sha256": "f520eaf096361abbb9639ea4dc3e5388a87b9330e121f476607b87c46ef67954",
+      "bytes": 74800
+    },
+    "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C": {
+      "sha256": "b6dbea8cefc2e7d490775ce6115e34a2ba480c0853c359e0bb4043b9381ef09a",
+      "bytes": 793824
+    },
+    "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc": {
+      "sha256": "610b1e394973bd1b86de8afc983524bd21dea177e87bfae75ec289d4c350f9ae",
+      "bytes": 10485715
+    },
+    "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK": {
+      "sha256": "b1e8b3eb1c0027b3c05b059dec773661cbe93e2b304c1166e575b502ee2ca6d2",
+      "bytes": 1700160
+    },
+    "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8": {
+      "sha256": "3bcf0828cf38e5f703adbf31dc1bf81f0a1254dcb176ca950ae52231c20e6d14",
+      "bytes": 1406384
+    },
+    "Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB": {
+      "sha256": "de81c5e8e2725857af73da5294323cecae4eb639f5b4b66e300662b5a0f2547b",
+      "bytes": 1924896
+    },
+    "cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG": {
+      "sha256": "4d5b920baebc090f89b2e8796a3452ed067c9667a143058c96a312f2c1e6848b",
+      "bytes": 2174352
+    },
+    "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo": {
+      "sha256": "d296c6771cec945601027613ca637c1be6721044c5859009d41c453477844c1f",
+      "bytes": 2229776
+    },
+    "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA": {
+      "sha256": "2e2608ddce89d1d23216756f0ace0f718e9164660bcdb4a40221318dc56db4ca",
+      "bytes": 10485715
+    },
+    "24Uqj9JCLxUeoC3hGfh5W3s9FM9uCHDS2SG3LYwBpyTi": {
+      "sha256": "fd0f3dd9e38a51f3afe04084a9df9dad1017af3e482674d2eed5b16e47ec78eb",
+      "bytes": 1930560
+    }
+  },
+  "syntheticSetup": {
+    "owner": "egpWWQCJ8mCyBkzrysiUUHYZLGnU4J9GBJkhdfQ7u1n",
+    "mintA": "9YehZXKiTG5MdwkkXJdzV1Qy47hY6Qpxv4r55aoHkKBE",
+    "mintB": "A6YdNDbbvMTi8AxnUm2ZftU9iZncwu8VHzmTVYDPLE5e",
+    "funding": "Local ledger only;100SOL and1e15 raw units per mint"
+  },
+  "executions": [
+    {
+      "venue": "raydium-cpmm",
+      "operation": "initialize",
+      "pool": "7Qd4RBA5eCAsPLixXBaJjaa425PBPpMXWTMZgf47dfgK",
+      "transactions": [
+        {
+          "signature": "2LcgNgstC3x4hHKLLwS9dvwhLanj2QTTYCgVZyiGPxfniz9CbuqzyY429cG3PZWqJQtUrR7kdHgJJZVdnMUCK1zy",
+          "units": 86597,
+          "wireBytes": 786
+        }
+      ],
+      "balances": [
+        {
+          "mint": "9YehZXKiTG5MdwkkXJdzV1Qy47hY6Qpxv4r55aoHkKBE",
+          "direction": "debit",
+          "before": "1000000000000000",
+          "after": "999000000000000",
+          "actualRaw": "1000000000000",
+          "expectedRaw": "1000000000000",
+          "limitRaw": "1000000000000"
+        },
+        {
+          "mint": "A6YdNDbbvMTi8AxnUm2ZftU9iZncwu8VHzmTVYDPLE5e",
+          "direction": "debit",
+          "before": "1000000000000000",
+          "after": "999000000000000",
+          "actualRaw": "1000000000000",
+          "expectedRaw": "1000000000000",
+          "limitRaw": "1000000000000"
+        },
+        {
+          "mint": "92zMYdbR9aqAYUQUSJCELiorhhe2ig2PXuNiAUXQRc4D",
+          "direction": "credit",
+          "before": "0",
+          "after": "999999999900",
+          "actualRaw": "999999999900",
+          "expectedRaw": "999999999900",
+          "limitRaw": "0"
+        }
+      ]
+    },
+    {
+      "venue": "raydium-cpmm",
+      "operation": "add",
+      "pool": "7Qd4RBA5eCAsPLixXBaJjaa425PBPpMXWTMZgf47dfgK",
+      "transactions": [
+        {
+          "signature": "5VHEC8srp2AqApg3udYcSFQWqBXgW592GQ3vr8Hj3bHFCnRhxwVJ9W81iuWtdQ4BTfHFrrCbB8ay6dh2EiWKBUfK",
+          "units": 25387,
+          "wireBytes": 619
+        }
+      ],
+      "balances": [
+        {
+          "mint": "9YehZXKiTG5MdwkkXJdzV1Qy47hY6Qpxv4r55aoHkKBE",
+          "direction": "debit",
+          "before": "999000000000000",
+          "after": "998999009900991",
+          "actualRaw": "990099009",
+          "expectedRaw": "990099009",
+          "limitRaw": "1000000000"
+        },
+        {
+          "mint": "A6YdNDbbvMTi8AxnUm2ZftU9iZncwu8VHzmTVYDPLE5e",
+          "direction": "debit",
+          "before": "999000000000000",
+          "after": "998999009900991",
+          "actualRaw": "990099009",
+          "expectedRaw": "990099009",
+          "limitRaw": "1000000000"
+        },
+        {
+          "mint": "92zMYdbR9aqAYUQUSJCELiorhhe2ig2PXuNiAUXQRc4D",
+          "direction": "credit",
+          "before": "999999999900",
+          "after": "1000990098909",
+          "actualRaw": "990099009",
+          "expectedRaw": "990099009",
+          "limitRaw": "990099009"
+        }
+      ]
+    },
+    {
+      "venue": "raydium-cpmm",
+      "operation": "remove",
+      "pool": "7Qd4RBA5eCAsPLixXBaJjaa425PBPpMXWTMZgf47dfgK",
+      "transactions": [
+        {
+          "signature": "5fVVPnbWeMhF5wNMvcrxn9PKAcVtxLMNaqKiDtQPaMWMfLUtR8fC5HJ8gkTiweNhuTKxfxsAvMNugYn95wKKGRwm",
+          "units": 25599,
+          "wireBytes": 652
+        }
+      ],
+      "balances": [
+        {
+          "mint": "9YehZXKiTG5MdwkkXJdzV1Qy47hY6Qpxv4r55aoHkKBE",
+          "direction": "credit",
+          "before": "998999009900991",
+          "after": "998999504950495",
+          "actualRaw": "495049504",
+          "expectedRaw": "495049504",
+          "limitRaw": "490099008"
+        },
+        {
+          "mint": "A6YdNDbbvMTi8AxnUm2ZftU9iZncwu8VHzmTVYDPLE5e",
+          "direction": "credit",
+          "before": "998999009900991",
+          "after": "998999504950495",
+          "actualRaw": "495049504",
+          "expectedRaw": "495049504",
+          "limitRaw": "490099008"
+        },
+        {
+          "mint": "92zMYdbR9aqAYUQUSJCELiorhhe2ig2PXuNiAUXQRc4D",
+          "direction": "debit",
+          "before": "1000990098909",
+          "after": "1000495049405",
+          "actualRaw": "495049504",
+          "expectedRaw": "495049504",
+          "limitRaw": "495049504"
+        }
+      ]
+    },
+    {
+      "venue": "orca",
+      "operation": "initialize",
+      "pool": "DA4KpkH9wnHHZCsJ2Djb4Pp4gwsf1EhdRC8TuFc99W9g",
+      "transactions": [
+        {
+          "signature": "3H4JXsCwGpHuzAEvHVx5vA9MRRtZPBKt9TSty3RSXWDMmhniMUVHjfJ3SDMNUUsoU3yGZg1CPsfBD9mfmFYfeCic",
+          "units": 35040,
+          "wireBytes": 729
+        }
+      ],
+      "balances": []
+    },
+    {
+      "positionLiquidityBefore": "0",
+      "positionLiquidityAfter": "994987437",
+      "venue": "orca",
+      "operation": "add",
+      "pool": "DA4KpkH9wnHHZCsJ2Djb4Pp4gwsf1EhdRC8TuFc99W9g",
+      "position": "2ArvG9Y5vSkFe3ABo9BqmYqEyiouYUwMZJ9FbrQ3XEE5",
+      "transactions": [
+        {
+          "signature": "3dTSbFdT12ZkYpN1ArDKRtroz3Cqm3m6hYXY6BgELYrF6ATEqh1jKL8LHJ2YW8uJdZp2UmmKsvSX9pbhrsPPDPXX",
+          "units": 14602,
+          "wireBytes": 356
+        },
+        {
+          "signature": "3KiYjMN2TNr55FGzwYRZWGix7m18URhP4fhdGz5KR1viM53M2Edeu397Mom6fDZ6NiggY1qKiV63y7eYGPZTs8Rj",
+          "units": 53857,
+          "wireBytes": 885
+        }
+      ],
+      "balances": [
+        {
+          "mint": "9YehZXKiTG5MdwkkXJdzV1Qy47hY6Qpxv4r55aoHkKBE",
+          "direction": "debit",
+          "before": "998999504950495",
+          "after": "998998509963058",
+          "actualRaw": "994987437",
+          "expectedRaw": "994987437",
+          "limitRaw": "1000000000"
+        },
+        {
+          "mint": "A6YdNDbbvMTi8AxnUm2ZftU9iZncwu8VHzmTVYDPLE5e",
+          "direction": "debit",
+          "before": "998999504950495",
+          "after": "998998509963058",
+          "actualRaw": "994987437",
+          "expectedRaw": "994987437",
+          "limitRaw": "999949999"
+        }
+      ]
+    },
+    {
+      "positionLiquidityBefore": "994987437",
+      "positionLiquidityAfter": "497493719",
+      "venue": "orca",
+      "operation": "remove",
+      "pool": "DA4KpkH9wnHHZCsJ2Djb4Pp4gwsf1EhdRC8TuFc99W9g",
+      "position": "2ArvG9Y5vSkFe3ABo9BqmYqEyiouYUwMZJ9FbrQ3XEE5",
+      "transactions": [
+        {
+          "signature": "4U2tFr9zXbaBeFwN3vhW6KDwKoeiCrH4kLGdhHZAqH6UFwXKRTKLySp9ovLUgPzMeb1f17yzKpyDmJ5jz6zRaJjJ",
+          "units": 12204,
+          "wireBytes": 662
+        }
+      ],
+      "balances": [
+        {
+          "mint": "9YehZXKiTG5MdwkkXJdzV1Qy47hY6Qpxv4r55aoHkKBE",
+          "direction": "credit",
+          "before": "998998509963058",
+          "after": "998999007456775",
+          "actualRaw": "497493717",
+          "expectedRaw": "497493717",
+          "limitRaw": "492568036"
+        },
+        {
+          "mint": "A6YdNDbbvMTi8AxnUm2ZftU9iZncwu8VHzmTVYDPLE5e",
+          "direction": "credit",
+          "before": "998998509963058",
+          "after": "998999007456775",
+          "actualRaw": "497493717",
+          "expectedRaw": "497493717",
+          "limitRaw": "492568036"
+        }
+      ]
+    },
+    {
+      "venue": "raydium-clmm",
+      "operation": "initialize",
+      "pool": "BtwaosrbKyxWcVGADJxVR2hoRoaQYTLgXTJbeB6pcZRW",
+      "transactions": [
+        {
+          "signature": "5WKYgG82KGY2koWrk1ASbKtGv3c3Gtngh3J9JhUjJWmZVKcACmyPutfnfRNeG7LfkUyS2qB8hKZfZUfzEVeDQJ8V",
+          "units": 48921,
+          "wireBytes": 587
+        }
+      ],
+      "balances": []
+    },
+    {
+      "positionLiquidityBefore": "0",
+      "positionLiquidityAfter": "990099009",
+      "venue": "raydium-clmm",
+      "operation": "add",
+      "pool": "BtwaosrbKyxWcVGADJxVR2hoRoaQYTLgXTJbeB6pcZRW",
+      "position": "ETbY6tMyPZATopptXmpNKwTPVBiNmsb89TB5T3XF9r4k",
+      "transactions": [
+        {
+          "signature": "5tjAiYY8ffQg2y3AXmyayMe4FSgWZcQq4bjdKdK7UJiKTTuwmkfpNq5RJMT38gt3srNGgRpwSZGpVbQgfPRvfLMQ",
+          "units": 104414,
+          "wireBytes": 1008
+        }
+      ],
+      "balances": [
+        {
+          "mint": "9YehZXKiTG5MdwkkXJdzV1Qy47hY6Qpxv4r55aoHkKBE",
+          "direction": "debit",
+          "before": "998999007456775",
+          "after": "998998017357766",
+          "actualRaw": "990099009",
+          "expectedRaw": "990099009",
+          "limitRaw": "1000000000"
+        },
+        {
+          "mint": "A6YdNDbbvMTi8AxnUm2ZftU9iZncwu8VHzmTVYDPLE5e",
+          "direction": "debit",
+          "before": "998999007456775",
+          "after": "998998017357766",
+          "actualRaw": "990099009",
+          "expectedRaw": "990099009",
+          "limitRaw": "1000000000"
+        }
+      ]
+    },
+    {
+      "positionLiquidityBefore": "990099009",
+      "positionLiquidityAfter": "495049505",
+      "venue": "raydium-clmm",
+      "operation": "remove",
+      "pool": "BtwaosrbKyxWcVGADJxVR2hoRoaQYTLgXTJbeB6pcZRW",
+      "position": "ETbY6tMyPZATopptXmpNKwTPVBiNmsb89TB5T3XF9r4k",
+      "transactions": [
+        {
+          "signature": "64QmbXwNawZmHzMU73sT4irPfj4MGEczce9dp5LwtMzXnCeHLnkBSgPqAdtui7iT5a6mZdLkDxFkLtoEP8xFBjxN",
+          "units": 45469,
+          "wireBytes": 759
+        }
+      ],
+      "balances": [
+        {
+          "mint": "9YehZXKiTG5MdwkkXJdzV1Qy47hY6Qpxv4r55aoHkKBE",
+          "direction": "credit",
+          "before": "998998017357766",
+          "after": "998998512407269",
+          "actualRaw": "495049503",
+          "expectedRaw": "495049503",
+          "limitRaw": "490099007"
+        },
+        {
+          "mint": "A6YdNDbbvMTi8AxnUm2ZftU9iZncwu8VHzmTVYDPLE5e",
+          "direction": "credit",
+          "before": "998998017357766",
+          "after": "998998512407269",
+          "actualRaw": "495049503",
+          "expectedRaw": "495049503",
+          "limitRaw": "490099007"
+        }
+      ]
+    },
+    {
+      "venue": "raydium-amm-v4",
+      "operation": "initialize",
+      "pool": "BLGuFD3MkQkg8sS5Gq3Bw6oPySjFWNi1oafqWoHF6ebX",
+      "transactions": [
+        {
+          "signature": "3wozu9BeiQLMfHLD79Mo3imnrk7NzcNRAcgqMi3En7KDBfhRjbWq6v8PbjN56ZxKHoXjtHo8CtTtN2npVMsZ5Pqo",
+          "units": 106245,
+          "wireBytes": 811
+        }
+      ],
+      "balances": [
+        {
+          "mint": "9YehZXKiTG5MdwkkXJdzV1Qy47hY6Qpxv4r55aoHkKBE",
+          "direction": "debit",
+          "before": "998998512407269",
+          "after": "997998512407269",
+          "actualRaw": "1000000000000",
+          "expectedRaw": "1000000000000",
+          "limitRaw": "1000000000000"
+        },
+        {
+          "mint": "A6YdNDbbvMTi8AxnUm2ZftU9iZncwu8VHzmTVYDPLE5e",
+          "direction": "debit",
+          "before": "998998512407269",
+          "after": "997998512407269",
+          "actualRaw": "1000000000000",
+          "expectedRaw": "1000000000000",
+          "limitRaw": "1000000000000"
+        },
+        {
+          "mint": "FxqmpKdHWDZNKk5uf91NCwEJMC2r4ePu4bqMDLco5Gmk",
+          "direction": "credit",
+          "before": "0",
+          "after": "999999000000",
+          "actualRaw": "999999000000",
+          "expectedRaw": "999999000000",
+          "limitRaw": "0"
+        }
+      ]
+    },
+    {
+      "venue": "raydium-amm-v4",
+      "operation": "add",
+      "pool": "BLGuFD3MkQkg8sS5Gq3Bw6oPySjFWNi1oafqWoHF6ebX",
+      "transactions": [
+        {
+          "signature": "MhfbkRWuDJuvQNEuE7s5qoVumjcpDA2KQajaAYBDa2Z8zAuxjLif7RL9DPHYFKv17ttWd87f6LBZQZFsTsss3cV",
+          "units": 42589,
+          "wireBytes": 554
+        }
+      ],
+      "balances": [
+        {
+          "mint": "9YehZXKiTG5MdwkkXJdzV1Qy47hY6Qpxv4r55aoHkKBE",
+          "direction": "debit",
+          "before": "997998512407269",
+          "after": "997997512407269",
+          "actualRaw": "1000000000",
+          "expectedRaw": "1000000000",
+          "limitRaw": "1000000000"
+        },
+        {
+          "mint": "A6YdNDbbvMTi8AxnUm2ZftU9iZncwu8VHzmTVYDPLE5e",
+          "direction": "debit",
+          "before": "997998512407269",
+          "after": "997997512407269",
+          "actualRaw": "1000000000",
+          "expectedRaw": "1000000000",
+          "limitRaw": "1010000000"
+        },
+        {
+          "mint": "FxqmpKdHWDZNKk5uf91NCwEJMC2r4ePu4bqMDLco5Gmk",
+          "direction": "credit",
+          "before": "999999000000",
+          "after": "1000999000000",
+          "actualRaw": "1000000000",
+          "expectedRaw": "1000000000",
+          "limitRaw": "0"
+        }
+      ]
+    },
+    {
+      "venue": "raydium-amm-v4",
+      "operation": "remove",
+      "pool": "BLGuFD3MkQkg8sS5Gq3Bw6oPySjFWNi1oafqWoHF6ebX",
+      "transactions": [
+        {
+          "signature": "5cfdio3DNmaHdywxHhV2Cs26Agiy2qTpk4ZNLvZzZai9PP27QFoBGkAQZkT4Nbecpwd7n3352iGYhPfd179Drszi",
+          "units": 42826,
+          "wireBytes": 546
+        }
+      ],
+      "balances": [
+        {
+          "mint": "9YehZXKiTG5MdwkkXJdzV1Qy47hY6Qpxv4r55aoHkKBE",
+          "direction": "credit",
+          "before": "997997512407269",
+          "after": "997998012407269",
+          "actualRaw": "500000000",
+          "expectedRaw": "500000000",
+          "limitRaw": "495000000"
+        },
+        {
+          "mint": "A6YdNDbbvMTi8AxnUm2ZftU9iZncwu8VHzmTVYDPLE5e",
+          "direction": "credit",
+          "before": "997997512407269",
+          "after": "997998012407269",
+          "actualRaw": "500000000",
+          "expectedRaw": "500000000",
+          "limitRaw": "495000000"
+        },
+        {
+          "mint": "FxqmpKdHWDZNKk5uf91NCwEJMC2r4ePu4bqMDLco5Gmk",
+          "direction": "debit",
+          "before": "1000999000000",
+          "after": "1000499000000",
+          "actualRaw": "500000000",
+          "expectedRaw": "500000000",
+          "limitRaw": "500000000"
+        }
+      ]
+    },
+    {
+      "venue": "meteora-damm",
+      "operation": "initialize",
+      "pool": "FX5G8bPFbQVmKBuYbehL7BpevsuE7GmVDqxe99TQDXYk",
+      "transactions": [
+        {
+          "signature": "27aqgFMoDve8g647jqhB11ewRipnS4u5YwsxJxvVwexTtj59UHUDbG4YnUwtRt1B3oNQVsv8NsxraH1WHpGfZGwh",
+          "units": 294420,
+          "wireBytes": 1144
+        }
+      ],
+      "balances": [
+        {
+          "mint": "9YehZXKiTG5MdwkkXJdzV1Qy47hY6Qpxv4r55aoHkKBE",
+          "direction": "debit",
+          "before": "997998012407269",
+          "after": "996998012407269",
+          "actualRaw": "1000000000000",
+          "expectedRaw": "1000000000000",
+          "limitRaw": "1000000000000"
+        },
+        {
+          "mint": "A6YdNDbbvMTi8AxnUm2ZftU9iZncwu8VHzmTVYDPLE5e",
+          "direction": "debit",
+          "before": "997998012407269",
+          "after": "996998012407269",
+          "actualRaw": "1000000000000",
+          "expectedRaw": "1000000000000",
+          "limitRaw": "1000000000000"
+        }
+      ]
+    },
+    {
+      "venue": "meteora-damm",
+      "operation": "add",
+      "pool": "FX5G8bPFbQVmKBuYbehL7BpevsuE7GmVDqxe99TQDXYk",
+      "transactions": [
+        {
+          "signature": "dvK8oWAFPgPVmSddeTtkXqJUsFuCC818JP1X7R4QCbJrgnMB9nXuMidrY1eCZXzvZydNJui3ynLLEQPUUiVtVLj",
+          "units": 67838,
+          "wireBytes": 718
+        }
+      ],
+      "balances": [
+        {
+          "mint": "9YehZXKiTG5MdwkkXJdzV1Qy47hY6Qpxv4r55aoHkKBE",
+          "direction": "debit",
+          "before": "996998012407269",
+          "after": "996997022407269",
+          "actualRaw": "990000000",
+          "expectedRaw": "990000000",
+          "limitRaw": "999900000"
+        },
+        {
+          "mint": "A6YdNDbbvMTi8AxnUm2ZftU9iZncwu8VHzmTVYDPLE5e",
+          "direction": "debit",
+          "before": "996998012407269",
+          "after": "996997022407269",
+          "actualRaw": "990000000",
+          "expectedRaw": "990000000",
+          "limitRaw": "999900000"
+        },
+        {
+          "mint": "3nZgCJfvLm1uB55kVEGaA6ceDJJ3ydvdMjAJ4jUFofSf",
+          "direction": "credit",
+          "before": "1000000000000",
+          "after": "1000990000000",
+          "actualRaw": "990000000",
+          "expectedRaw": "990000000",
+          "limitRaw": "990000000"
+        }
+      ]
+    },
+    {
+      "venue": "meteora-damm",
+      "operation": "remove",
+      "pool": "FX5G8bPFbQVmKBuYbehL7BpevsuE7GmVDqxe99TQDXYk",
+      "transactions": [
+        {
+          "signature": "2Ff13daMQe7kFTZuevKBoaCayyLaVg4txDtT1TAAUL7JavEiWTS8TNFcvb28RrYbRnQ6G4kUapZDCgzY9zYP6N2Q",
+          "units": 68564,
+          "wireBytes": 718
+        }
+      ],
+      "balances": [
+        {
+          "mint": "3nZgCJfvLm1uB55kVEGaA6ceDJJ3ydvdMjAJ4jUFofSf",
+          "direction": "debit",
+          "before": "1000990000000",
+          "after": "1000495000000",
+          "actualRaw": "495000000",
+          "expectedRaw": "495000000",
+          "limitRaw": "495000000"
+        },
+        {
+          "mint": "9YehZXKiTG5MdwkkXJdzV1Qy47hY6Qpxv4r55aoHkKBE",
+          "direction": "credit",
+          "before": "996997022407269",
+          "after": "996997517407269",
+          "actualRaw": "495000000",
+          "expectedRaw": "495000000",
+          "limitRaw": "490050000"
+        },
+        {
+          "mint": "A6YdNDbbvMTi8AxnUm2ZftU9iZncwu8VHzmTVYDPLE5e",
+          "direction": "credit",
+          "before": "996997022407269",
+          "after": "996997517407269",
+          "actualRaw": "495000000",
+          "expectedRaw": "495000000",
+          "limitRaw": "490050000"
+        }
+      ]
+    },
+    {
+      "positionLiquidityBefore": "0",
+      "venue": "meteora-damm-v2",
+      "operation": "initialize",
+      "pool": "Axcvh5Z2XHJ1XyQnp8xfUbz6KXVZ7Scxy9S4PnjLWPvz",
+      "position": "2hkxYKh9RnEV2QFhTqS3v3ZjtDWe3pBHsdGJfbKfAHS9",
+      "transactions": [
+        {
+          "signature": "2DZUNy8J86DPLAYguC4hGDbcg8JgyXQ9Rhfg8KLGqVzjNJBGLyhSXMKCsKSbFX9G9f5hCMWK1o6kfiYnATRgCvLQ",
+          "units": 103420,
+          "wireBytes": 980
+        }
+      ],
+      "balances": [
+        {
+          "mint": "9YehZXKiTG5MdwkkXJdzV1Qy47hY6Qpxv4r55aoHkKBE",
+          "direction": "debit",
+          "before": "996997517407269",
+          "after": "995997517407269",
+          "actualRaw": "1000000000000",
+          "expectedRaw": "1000000000000",
+          "limitRaw": "1000000000000"
+        },
+        {
+          "mint": "A6YdNDbbvMTi8AxnUm2ZftU9iZncwu8VHzmTVYDPLE5e",
+          "direction": "debit",
+          "before": "996997517407269",
+          "after": "995997517407269",
+          "actualRaw": "1000000000000",
+          "expectedRaw": "1000000000000",
+          "limitRaw": "1000000000000"
+        }
+      ]
+    },
+    {
+      "positionLiquidityBefore": "0",
+      "venue": "meteora-damm-v2",
+      "operation": "add",
+      "pool": "Axcvh5Z2XHJ1XyQnp8xfUbz6KXVZ7Scxy9S4PnjLWPvz",
+      "position": "BhDndkQSq9p6CRmJRedADz4Z8csvbex9RVXYFpZ3svsB",
+      "transactions": [
+        {
+          "signature": "3xQXwgm9LHGRRhsVzs29y6FNN7wLwRX4rDtLBFhqV2Lh7ydZTWNcQVLYENRua4pXddC3hw1M3uQjyXMBqk6MDvRc",
+          "units": 79153,
+          "wireBytes": 865
+        }
+      ],
+      "balances": [
+        {
+          "mint": "9YehZXKiTG5MdwkkXJdzV1Qy47hY6Qpxv4r55aoHkKBE",
+          "direction": "debit",
+          "before": "995997517407269",
+          "after": "995996517407269",
+          "actualRaw": "1000000000",
+          "expectedRaw": "1000000000",
+          "limitRaw": "1010000000"
+        },
+        {
+          "mint": "A6YdNDbbvMTi8AxnUm2ZftU9iZncwu8VHzmTVYDPLE5e",
+          "direction": "debit",
+          "before": "995997517407269",
+          "after": "995996517407269",
+          "actualRaw": "1000000000",
+          "expectedRaw": "1000000000",
+          "limitRaw": "1010000000"
+        }
+      ]
+    },
+    {
+      "venue": "meteora-damm-v2",
+      "operation": "remove",
+      "pool": "Axcvh5Z2XHJ1XyQnp8xfUbz6KXVZ7Scxy9S4PnjLWPvz",
+      "position": "BhDndkQSq9p6CRmJRedADz4Z8csvbex9RVXYFpZ3svsB",
+      "transactions": [
+        {
+          "signature": "2ZahLwsnUjStfcHFLBZHPX6D6ohXSCXNbNymCqTUi8oTv5wrkXTgczEUkfne1BBfv71juEytE8NaHay4toqjWvBg",
+          "units": 33787,
+          "wireBytes": 715
+        }
+      ],
+      "balances": [
+        {
+          "mint": "9YehZXKiTG5MdwkkXJdzV1Qy47hY6Qpxv4r55aoHkKBE",
+          "direction": "credit",
+          "before": "995996517407269",
+          "after": "995997017407268",
+          "actualRaw": "499999999",
+          "expectedRaw": "499999999",
+          "limitRaw": "494999999"
+        },
+        {
+          "mint": "A6YdNDbbvMTi8AxnUm2ZftU9iZncwu8VHzmTVYDPLE5e",
+          "direction": "credit",
+          "before": "995996517407269",
+          "after": "995997017407268",
+          "actualRaw": "499999999",
+          "expectedRaw": "499999999",
+          "limitRaw": "494999999"
+        }
+      ]
+    },
+    {
+      "venue": "meteora-dlmm",
+      "operation": "initialize",
+      "pool": "BQSKWmRzZTfhNKxGQ7i177vbJKevMrB5nvjTetQ3hB2W",
+      "transactions": [
+        {
+          "signature": "52m57X23eJYbrMNDUkgVEJJedirs4RcnLCA2apgo5HSkBHS1ist66D3QiXiYqGKPsyxhAzPe9m1Vmgnw19My5wX2",
+          "units": 63290,
+          "wireBytes": 696
+        }
+      ],
+      "balances": []
+    },
+    {
+      "positionLiquidityBefore": "0",
+      "venue": "meteora-dlmm",
+      "operation": "add",
+      "pool": "BQSKWmRzZTfhNKxGQ7i177vbJKevMrB5nvjTetQ3hB2W",
+      "position": "CxhoZsmEC76dP3ctt1upL3oivzBq9m6CWz2AKv5UWmEi",
+      "transactions": [
+        {
+          "signature": "3TiHBQ8W6fcjjagDsRmkRsKxkutwHSNR859CXgsXiU39LEJGCNrjoGHu4wSf3X71sbxBuySLdvdsEToeX9ZZoXp1",
+          "units": 593918,
+          "wireBytes": 907
+        }
+      ],
+      "balances": [
+        {
+          "mint": "9YehZXKiTG5MdwkkXJdzV1Qy47hY6Qpxv4r55aoHkKBE",
+          "direction": "debit",
+          "before": "995997017407268",
+          "after": "995996017407273",
+          "actualRaw": "999999995",
+          "expectedRaw": "1000000000",
+          "limitRaw": "1000000000"
+        },
+        {
+          "mint": "A6YdNDbbvMTi8AxnUm2ZftU9iZncwu8VHzmTVYDPLE5e",
+          "direction": "debit",
+          "before": "995997017407268",
+          "after": "995995997407276",
+          "actualRaw": "1019999992",
+          "expectedRaw": "1020000000",
+          "limitRaw": "1020000000"
+        }
+      ]
+    },
+    {
+      "venue": "meteora-dlmm",
+      "operation": "remove",
+      "pool": "BQSKWmRzZTfhNKxGQ7i177vbJKevMrB5nvjTetQ3hB2W",
+      "position": "CxhoZsmEC76dP3ctt1upL3oivzBq9m6CWz2AKv5UWmEi",
+      "transactions": [
+        {
+          "signature": "3DS5257LcWJFNJJbpRJJMzRBfjpuUEv8nCxkTKFqHmUoKKgu6yekReGCBViwgWJDCWGvFSu1pPnDAk34N4HoVksh",
+          "units": 106778,
+          "wireBytes": 735
+        }
+      ],
+      "balances": [
+        {
+          "mint": "9YehZXKiTG5MdwkkXJdzV1Qy47hY6Qpxv4r55aoHkKBE",
+          "direction": "credit",
+          "before": "995996017407273",
+          "after": "995996517407268",
+          "actualRaw": "499999995",
+          "expectedRaw": "499999995",
+          "limitRaw": "0"
+        },
+        {
+          "mint": "A6YdNDbbvMTi8AxnUm2ZftU9iZncwu8VHzmTVYDPLE5e",
+          "direction": "credit",
+          "before": "995995997407276",
+          "after": "995996507407272",
+          "actualRaw": "509999996",
+          "expectedRaw": "509999996",
+          "limitRaw": "0"
+        }
+      ]
+    },
+    {
+      "venue": "pumpswap",
+      "operation": "initialize",
+      "pool": "nUkvTVsjgLpk9pffs627MFrqdZi5YbEsZ1ZSbahRVos",
+      "transactions": [
+        {
+          "signature": "2gVs8Du8BjBA14Ywjaz5zvuYjpGdowFHj1pPh32G6XXnBgmyWJagGfGHfUmAupZ6DmpFuxxSLcwJJ2h2xJy6NKYh",
+          "units": 112905,
+          "wireBytes": 780
+        }
+      ],
+      "balances": [
+        {
+          "mint": "9YehZXKiTG5MdwkkXJdzV1Qy47hY6Qpxv4r55aoHkKBE",
+          "direction": "debit",
+          "before": "995996517407268",
+          "after": "994996517407268",
+          "actualRaw": "1000000000000",
+          "expectedRaw": "1000000000000",
+          "limitRaw": "1000000000000"
+        },
+        {
+          "mint": "A6YdNDbbvMTi8AxnUm2ZftU9iZncwu8VHzmTVYDPLE5e",
+          "direction": "debit",
+          "before": "995996507407272",
+          "after": "994996507407272",
+          "actualRaw": "1000000000000",
+          "expectedRaw": "1000000000000",
+          "limitRaw": "1000000000000"
+        }
+      ]
+    },
+    {
+      "venue": "pumpswap",
+      "operation": "add",
+      "pool": "nUkvTVsjgLpk9pffs627MFrqdZi5YbEsZ1ZSbahRVos",
+      "transactions": [
+        {
+          "signature": "48jmZBjWHR7wrpQopG7buCWdkEqdtgKLeYkYRviCr5hYEmzbKy5sVUzBF2ccX5HJhw3H2BoEmsqYgBbMSTHBkK67",
+          "units": 41554,
+          "wireBytes": 702
+        }
+      ],
+      "balances": [
+        {
+          "mint": "9YehZXKiTG5MdwkkXJdzV1Qy47hY6Qpxv4r55aoHkKBE",
+          "direction": "debit",
+          "before": "994996517407268",
+          "after": "994995517407268",
+          "actualRaw": "1000000000",
+          "expectedRaw": "1000000000",
+          "limitRaw": "1010000000"
+        },
+        {
+          "mint": "A6YdNDbbvMTi8AxnUm2ZftU9iZncwu8VHzmTVYDPLE5e",
+          "direction": "debit",
+          "before": "994996507407272",
+          "after": "994995507407272",
+          "actualRaw": "1000000000",
+          "expectedRaw": "1000000000",
+          "limitRaw": "1010000000"
+        },
+        {
+          "mint": "BWpy8c4V8U12hZg19KJk2ED5xbrB7erkGnsq6sBGr8sD",
+          "direction": "credit",
+          "before": "999999999900",
+          "after": "1000999999900",
+          "actualRaw": "1000000000",
+          "expectedRaw": "1000000000",
+          "limitRaw": "1000000000"
+        }
+      ]
+    },
+    {
+      "venue": "pumpswap",
+      "operation": "remove",
+      "pool": "nUkvTVsjgLpk9pffs627MFrqdZi5YbEsZ1ZSbahRVos",
+      "transactions": [
+        {
+          "signature": "5jMA9hSUogeH53komjSj27vz7r1Q2yz2y5wxHmxUh7aMZHwdDJja24CmkAoKZVgeHRV4pB3rp1jkk3bU6eQnRf13",
+          "units": 30231,
+          "wireBytes": 653
+        }
+      ],
+      "balances": [
+        {
+          "mint": "BWpy8c4V8U12hZg19KJk2ED5xbrB7erkGnsq6sBGr8sD",
+          "direction": "debit",
+          "before": "1000999999900",
+          "after": "1000499999900",
+          "actualRaw": "500000000",
+          "expectedRaw": "500000000",
+          "limitRaw": "500000000"
+        },
+        {
+          "mint": "9YehZXKiTG5MdwkkXJdzV1Qy47hY6Qpxv4r55aoHkKBE",
+          "direction": "credit",
+          "before": "994995517407268",
+          "after": "994996017407268",
+          "actualRaw": "500000000",
+          "expectedRaw": "500000000",
+          "limitRaw": "495000000"
+        },
+        {
+          "mint": "A6YdNDbbvMTi8AxnUm2ZftU9iZncwu8VHzmTVYDPLE5e",
+          "direction": "credit",
+          "before": "994995507407272",
+          "after": "994996007407272",
+          "actualRaw": "500000000",
+          "expectedRaw": "500000000",
+          "limitRaw": "495000000"
+        }
+      ]
+    }
+  ],
+  "failures": []
+}

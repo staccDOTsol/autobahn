@@ -1,0 +1,508 @@
+{
+  "cluster": "mainnet-beta",
+  "owner": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+  "sampleCapLamports": 1266472956,
+  "postDeploymentStartingBalanceLamports": 481872686,
+  "cumulativeGrossDebitLamports": 10373372,
+  "receipts": [
+    {
+      "venue": "pumpswap",
+      "operation": "initialize",
+      "cluster": "mainnet-beta",
+      "pool": "7GZHLdhvZN1NSutNt1BJs5S9ArBobAdCvyGzwPo22LHA",
+      "owner": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+      "request": {
+        "venue": "pumpswap",
+        "operation": "initialize",
+        "owner": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+        "mintA": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "mintB": "So11111111111111111111111111111111111111112",
+        "slippageBps": 50,
+        "transactionVersion": "1",
+        "parameters": {
+          "index": 17417
+        },
+        "amountA": "1000",
+        "amountB": "8500"
+      },
+      "quote": {
+        "pool": "7GZHLdhvZN1NSutNt1BJs5S9ArBobAdCvyGzwPo22LHA",
+        "slot": 454423610,
+        "amounts": [
+          {
+            "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+            "decimals": 6,
+            "expectedRaw": "1000",
+            "limitRaw": "1000",
+            "direction": "debit"
+          },
+          {
+            "mint": "So11111111111111111111111111111111111111112",
+            "decimals": 9,
+            "expectedRaw": "8500",
+            "limitRaw": "8500",
+            "direction": "debit"
+          }
+        ],
+        "details": {
+          "index": 17417
+        },
+        "warnings": [
+          "Pool initialization creates a permissionless pool; account rent and network fees are additional."
+        ],
+        "quoteId": "ee93fe4d-2179-4b2c-ac0d-c0819468001c",
+        "expiresAt": 1791430143614,
+        "owner": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+        "venue": "pumpswap",
+        "operation": "initialize",
+        "transactionVersion": "1"
+      },
+      "transactionVersion": 1,
+      "simulation": {
+        "err": null,
+        "slot": 454423615,
+        "unitsConsumed": 123536,
+        "walletDebitLamports": 7693220
+      },
+      "beforeBalanceLamports": 481872686,
+      "status": "confirmed",
+      "signature": "3P43McddpWKZCJXYddYonUoyDvXVAW8BBciCrj7ghhC6vCTi6XjkSjXVdHDMMzTrjhkuNvVLjxn8z7PEN4vTEP4w",
+      "slot": 454423617,
+      "feeLamports": 19000,
+      "unitsConsumed": 123536,
+      "actualWalletDebitLamports": 7693220,
+      "afterBalanceLamports": 474179466,
+      "preTokenBalances": [
+        {
+          "accountIndex": 3,
+          "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "uiTokenAmount": {
+            "uiAmount": 0.007082,
+            "decimals": 6,
+            "amount": "7082",
+            "uiAmountString": "0.007082"
+          },
+          "owner": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "postTokenBalances": [
+        {
+          "accountIndex": 2,
+          "mint": "Gwu1CdEoUZGRAxBxTP7zr16StFVfrwA2ZHMA1dUvXSsy",
+          "uiTokenAmount": {
+            "uiAmount": 2.815e-06,
+            "decimals": 9,
+            "amount": "2815",
+            "uiAmountString": "0.000002815"
+          },
+          "owner": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+          "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        },
+        {
+          "accountIndex": 3,
+          "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "uiTokenAmount": {
+            "uiAmount": 0.006082,
+            "decimals": 6,
+            "amount": "6082",
+            "uiAmountString": "0.006082"
+          },
+          "owner": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "accountIndex": 4,
+          "mint": "So11111111111111111111111111111111111111112",
+          "uiTokenAmount": {
+            "uiAmount": 8.5e-06,
+            "decimals": 9,
+            "amount": "8500",
+            "uiAmountString": "0.0000085"
+          },
+          "owner": "7GZHLdhvZN1NSutNt1BJs5S9ArBobAdCvyGzwPo22LHA",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "accountIndex": 5,
+          "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "uiTokenAmount": {
+            "uiAmount": 0.001,
+            "decimals": 6,
+            "amount": "1000",
+            "uiAmountString": "0.001"
+          },
+          "owner": "7GZHLdhvZN1NSutNt1BJs5S9ArBobAdCvyGzwPo22LHA",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ]
+    },
+    {
+      "venue": "pumpswap",
+      "operation": "add",
+      "cluster": "mainnet-beta",
+      "pool": "7GZHLdhvZN1NSutNt1BJs5S9ArBobAdCvyGzwPo22LHA",
+      "owner": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+      "request": {
+        "venue": "pumpswap",
+        "operation": "add",
+        "owner": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+        "mintA": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "mintB": "So11111111111111111111111111111111111111112",
+        "slippageBps": 50,
+        "transactionVersion": "1",
+        "parameters": {},
+        "pool": "7GZHLdhvZN1NSutNt1BJs5S9ArBobAdCvyGzwPo22LHA",
+        "amountA": "1000",
+        "amountB": "8600"
+      },
+      "quote": {
+        "pool": "7GZHLdhvZN1NSutNt1BJs5S9ArBobAdCvyGzwPo22LHA",
+        "slot": 454423722,
+        "amounts": [
+          {
+            "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+            "decimals": 6,
+            "expectedRaw": "1000",
+            "limitRaw": "1005",
+            "direction": "debit"
+          },
+          {
+            "mint": "So11111111111111111111111111111111111111112",
+            "decimals": 9,
+            "expectedRaw": "8500",
+            "limitRaw": "8543",
+            "direction": "debit"
+          },
+          {
+            "mint": "Gwu1CdEoUZGRAxBxTP7zr16StFVfrwA2ZHMA1dUvXSsy",
+            "decimals": 9,
+            "expectedRaw": "2915",
+            "limitRaw": "2915",
+            "direction": "credit"
+          }
+        ],
+        "details": {
+          "mintA": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "mintB": "So11111111111111111111111111111111111111112",
+          "liquidity": "2915"
+        },
+        "quoteId": "96f2cf5e-6095-49b8-bd41-76bce673ba9a",
+        "expiresAt": 1791430174046,
+        "owner": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+        "venue": "pumpswap",
+        "operation": "add",
+        "transactionVersion": "1"
+      },
+      "transactionVersion": 1,
+      "simulation": {
+        "err": null,
+        "slot": 454423726,
+        "unitsConsumed": 56632,
+        "walletDebitLamports": 98620
+      },
+      "beforeBalanceLamports": 474179466,
+      "status": "confirmed",
+      "signature": "4ekNaABGkatd7B63bobqnNvMwYPFWbSKrSWoVTzda7KmMNeuyBNnSbpdhQMdSqgTWrx2NevD3Jg8Q5ER5VRmWmM9",
+      "slot": 454423729,
+      "feeLamports": 19000,
+      "unitsConsumed": 56632,
+      "actualWalletDebitLamports": 98620,
+      "afterBalanceLamports": 474080846,
+      "preTokenBalances": [
+        {
+          "accountIndex": 2,
+          "mint": "Gwu1CdEoUZGRAxBxTP7zr16StFVfrwA2ZHMA1dUvXSsy",
+          "uiTokenAmount": {
+            "uiAmount": 2.815e-06,
+            "decimals": 9,
+            "amount": "2815",
+            "uiAmountString": "0.000002815"
+          },
+          "owner": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+          "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        },
+        {
+          "accountIndex": 3,
+          "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "uiTokenAmount": {
+            "uiAmount": 0.006082,
+            "decimals": 6,
+            "amount": "6082",
+            "uiAmountString": "0.006082"
+          },
+          "owner": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "accountIndex": 4,
+          "mint": "So11111111111111111111111111111111111111112",
+          "uiTokenAmount": {
+            "uiAmount": 8.5e-06,
+            "decimals": 9,
+            "amount": "8500",
+            "uiAmountString": "0.0000085"
+          },
+          "owner": "7GZHLdhvZN1NSutNt1BJs5S9ArBobAdCvyGzwPo22LHA",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "accountIndex": 5,
+          "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "uiTokenAmount": {
+            "uiAmount": 0.001,
+            "decimals": 6,
+            "amount": "1000",
+            "uiAmountString": "0.001"
+          },
+          "owner": "7GZHLdhvZN1NSutNt1BJs5S9ArBobAdCvyGzwPo22LHA",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "postTokenBalances": [
+        {
+          "accountIndex": 2,
+          "mint": "Gwu1CdEoUZGRAxBxTP7zr16StFVfrwA2ZHMA1dUvXSsy",
+          "uiTokenAmount": {
+            "uiAmount": 5.73e-06,
+            "decimals": 9,
+            "amount": "5730",
+            "uiAmountString": "0.00000573"
+          },
+          "owner": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+          "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        },
+        {
+          "accountIndex": 3,
+          "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "uiTokenAmount": {
+            "uiAmount": 0.005082,
+            "decimals": 6,
+            "amount": "5082",
+            "uiAmountString": "0.005082"
+          },
+          "owner": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "accountIndex": 4,
+          "mint": "So11111111111111111111111111111111111111112",
+          "uiTokenAmount": {
+            "uiAmount": 1.7e-05,
+            "decimals": 9,
+            "amount": "17000",
+            "uiAmountString": "0.000017"
+          },
+          "owner": "7GZHLdhvZN1NSutNt1BJs5S9ArBobAdCvyGzwPo22LHA",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "accountIndex": 5,
+          "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "uiTokenAmount": {
+            "uiAmount": 0.002,
+            "decimals": 6,
+            "amount": "2000",
+            "uiAmountString": "0.002"
+          },
+          "owner": "7GZHLdhvZN1NSutNt1BJs5S9ArBobAdCvyGzwPo22LHA",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ]
+    },
+    {
+      "venue": "pumpswap",
+      "operation": "remove",
+      "cluster": "mainnet-beta",
+      "executionPath": "FTL HTTP API \u2192 Rust router HTTP API \u2192 LiquidityEngine \u2192 wallet signature \u2192 FTL RPC proxy \u2192 mainnet",
+      "pool": "7GZHLdhvZN1NSutNt1BJs5S9ArBobAdCvyGzwPo22LHA",
+      "owner": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+      "request": {
+        "venue": "pumpswap",
+        "operation": "remove",
+        "owner": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+        "mintA": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "mintB": "So11111111111111111111111111111111111111112",
+        "slippageBps": 50,
+        "transactionVersion": "1",
+        "parameters": {},
+        "pool": "7GZHLdhvZN1NSutNt1BJs5S9ArBobAdCvyGzwPo22LHA",
+        "position": "8YVzvXPEasWdUhRt2D57roLc5NSgdHJgRxPAQwMP2FkD",
+        "liquidity": "5730"
+      },
+      "quote": {
+        "amounts": [
+          {
+            "decimals": 9,
+            "direction": "debit",
+            "expectedRaw": "5730",
+            "limitRaw": "5730",
+            "mint": "Gwu1CdEoUZGRAxBxTP7zr16StFVfrwA2ZHMA1dUvXSsy"
+          },
+          {
+            "decimals": 6,
+            "direction": "credit",
+            "expectedRaw": "1965",
+            "limitRaw": "1955",
+            "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+          },
+          {
+            "decimals": 9,
+            "direction": "credit",
+            "expectedRaw": "16708",
+            "limitRaw": "16624",
+            "mint": "So11111111111111111111111111111111111111112"
+          }
+        ],
+        "details": {
+          "liquidity": "5730",
+          "mintA": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "mintB": "So11111111111111111111111111111111111111112"
+        },
+        "expiresAt": 1791430324032,
+        "operation": "remove",
+        "owner": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+        "pool": "7GZHLdhvZN1NSutNt1BJs5S9ArBobAdCvyGzwPo22LHA",
+        "quoteId": "9db0bc23-afe7-44f7-90d6-73b89526d318",
+        "slot": 454424285,
+        "transactionVersion": "1",
+        "venue": "pumpswap"
+      },
+      "transactionVersion": 1,
+      "simulation": {
+        "err": null,
+        "slot": 454424288,
+        "unitsConsumed": 44958,
+        "walletDebitLamports": 2292
+      },
+      "beforeBalanceLamports": 474080846,
+      "status": "confirmed",
+      "signature": "3CmW7kY9DyJ9kuNBLnaUxtaCTmRLSocCrh22bdMPb1gwJw99HBZ7xWk4G7ZTjeV5gHXEiYYW2VQN96y2gaVnLC2s",
+      "slot": 454424292,
+      "feeLamports": 19000,
+      "unitsConsumed": 44958,
+      "actualWalletDebitLamports": 2292,
+      "afterBalanceLamports": 474078554,
+      "preTokenBalances": [
+        {
+          "accountIndex": 2,
+          "mint": "Gwu1CdEoUZGRAxBxTP7zr16StFVfrwA2ZHMA1dUvXSsy",
+          "uiTokenAmount": {
+            "uiAmount": 5.73e-06,
+            "decimals": 9,
+            "amount": "5730",
+            "uiAmountString": "0.00000573"
+          },
+          "owner": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+          "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        },
+        {
+          "accountIndex": 3,
+          "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "uiTokenAmount": {
+            "uiAmount": 0.005082,
+            "decimals": 6,
+            "amount": "5082",
+            "uiAmountString": "0.005082"
+          },
+          "owner": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "accountIndex": 4,
+          "mint": "So11111111111111111111111111111111111111112",
+          "uiTokenAmount": {
+            "uiAmount": 1.7e-05,
+            "decimals": 9,
+            "amount": "17000",
+            "uiAmountString": "0.000017"
+          },
+          "owner": "7GZHLdhvZN1NSutNt1BJs5S9ArBobAdCvyGzwPo22LHA",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "accountIndex": 5,
+          "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "uiTokenAmount": {
+            "uiAmount": 0.002,
+            "decimals": 6,
+            "amount": "2000",
+            "uiAmountString": "0.002"
+          },
+          "owner": "7GZHLdhvZN1NSutNt1BJs5S9ArBobAdCvyGzwPo22LHA",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "postTokenBalances": [
+        {
+          "accountIndex": 2,
+          "mint": "Gwu1CdEoUZGRAxBxTP7zr16StFVfrwA2ZHMA1dUvXSsy",
+          "uiTokenAmount": {
+            "uiAmount": null,
+            "decimals": 9,
+            "amount": "0",
+            "uiAmountString": "0"
+          },
+          "owner": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+          "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        },
+        {
+          "accountIndex": 3,
+          "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "uiTokenAmount": {
+            "uiAmount": 0.007047,
+            "decimals": 6,
+            "amount": "7047",
+            "uiAmountString": "0.007047"
+          },
+          "owner": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "accountIndex": 4,
+          "mint": "So11111111111111111111111111111111111111112",
+          "uiTokenAmount": {
+            "uiAmount": 2.92e-07,
+            "decimals": 9,
+            "amount": "292",
+            "uiAmountString": "0.000000292"
+          },
+          "owner": "7GZHLdhvZN1NSutNt1BJs5S9ArBobAdCvyGzwPo22LHA",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "accountIndex": 5,
+          "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "uiTokenAmount": {
+            "uiAmount": 3.5e-05,
+            "decimals": 6,
+            "amount": "35",
+            "uiAmountString": "0.000035"
+          },
+          "owner": "7GZHLdhvZN1NSutNt1BJs5S9ArBobAdCvyGzwPo22LHA",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ]
+    },
+    {
+      "venue": "spl-token",
+      "operation": "sample-mint-setup",
+      "cluster": "mainnet-beta",
+      "mint": "A9ECbJ9UKSgf92A5QTW7dcJMcA14mUw3g3c4SMkNKnH4",
+      "owner": "331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth",
+      "decimals": 6,
+      "supplyRaw": "1000000000000000",
+      "simulation": {
+        "err": null,
+        "unitsConsumed": 16883,
+        "walletDebitLamports": 2579240
+      },
+      "status": "confirmed",
+      "signature": "4a5TVuWaxyDSf7JHaegbLFh4hXNVoV2mmV69q8QwqzSnRbrxzbo46m51vAKrvThEy9V8oVLtEqt5uGphcJo8Fjgh",
+      "slot": 454424613,
+      "feeLamports": 24000,
+      "actualWalletDebitLamports": 2579240,
+      "afterBalanceLamports": 471499314
+    }
+  ]
+}

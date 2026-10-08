@@ -1,0 +1,19 @@
+{
+  "programId": "5f7YRhNMtZxAANQQV4B78keMFGiz8gTvAHA4p3Dj3kLp",
+  "signature": "4hgSvfSyjJi6xEyJpKeKb3HuC2s6XQ5LQV642XwaxQzxWrJ1idyuXtXC8scMmF8atG1UYYjM5N7dgbWC2gMvQ225",
+  "cluster": "mainnet-beta",
+  "signatureStatus": {
+    "slot": 454422155,
+    "confirmations": null,
+    "status": {
+      "Ok": null
+    },
+    "err": null,
+    "confirmationStatus": "finalized"
+  },
+  "slot": 454422155,
+  "feeLamports": 10003,
+  "executable": true,
+  "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+  "binarySha256": "4cdac0b2f8c0079006121d13071315600b2c52ad51c515ff6f0de819598cd3c5"
+}

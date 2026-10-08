@@ -278,6 +278,16 @@ Total wallet debit for the 19 LP receipts: 0.122296110 SOL, most of it DAMM v1 p
 
 This upgrades the claim in the table above: funded mainnet add/remove is now established for all eight venues, and funded initialize for three. Raydium, Orca and DLMM initialize remain proven only in the isolated SVM run. The browser-wallet signing pass is still a separate, unproven claim.
 
+### FTL product release (October 8, 2026, 00:15–00:45 Toronto)
+
+The deployed consumer surface is `liquidityxyz.fun` (Vercel project `ftl-liquidity`, Expo web export) backed by `api.liquidityxyz.fun` (Fly app `ftl-firehose`). Source is now at `github.com/staccDOTsol/ftl` (private), commit `845db08`. On the live site every Solana token page carries a Trade card with a Swap tab (wallet-standard, injected and Helius embedded wallets; quote, requote, simulate, sign, confirm) and a Liquidity tab listing all eight venue adapters with New pool / Add / Remove, positions lookup and multi-transaction review. The production server previously lacked `SOLANA_ROUTER_URL`, so the Liquidity tab reported "not configured"; that secret now points at `liquidityxyz-router.fly.dev`. The following was verified against production, not a dev host:
+
+- `GET api.liquidityxyz.fun/api/liquidity/solana/capabilities` returns eight venues, each with initialize, add and remove.
+- A Raydium CLMM add for the sample wallet was quoted, built (one V1 transaction, 1,082 bytes) and simulated successfully through `api.liquidityxyz.fun`, the same path the browser uses before asking the wallet to sign.
+- In a browser on `www.liquidityxyz.fun/token/solana/6Mix12…bordr`, a 0.01 SOL buy quoted 1,020.6 BORDR through Meteora DAMM v2 with minimum received and pool fee shown, and the Liquidity tab loaded all eight venues.
+
+Swaps now take the better of the direct venue router and the external Autobahn router; the browser-wallet signature itself is the one step these receipts do not cover, because it requires a human wallet approval.
+
 ## 9. Automatic admission is the governance mechanism
 
 The user's requirement is explicit: an adapter passing the required machine checks should be admitted, merged and deployed without an individual venue needing political sponsorship or a manual approval queue. The relevant new work is the admission contract and trusted execution evidence, not a claim to have invented the underlying AMMs.

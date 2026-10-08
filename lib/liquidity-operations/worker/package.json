@@ -1,0 +1,27 @@
+{
+  "name": "aggregator-liquidity-operations",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@solana/web3.js": "1.99.0",
+    "@solana/spl-token": "0.4.14",
+    "@raydium-io/raydium-sdk-v2": "0.2.73-alpha",
+    "@orca-so/whirlpools-sdk": "0.22.0",
+    "@orca-so/common-sdk": "0.7.1",
+    "@coral-xyz/anchor": "0.32.1",
+    "@meteora-ag/cp-amm-sdk": "1.5.1",
+    "@meteora-ag/dlmm": "1.9.14",
+    "@meteora-ag/dynamic-amm-sdk": "1.4.1",
+    "@pump-fun/pump-swap-sdk": "2.1.0",
+    "bn.js": "5.2.2",
+    "decimal.js": "10.6.0",
+    "@solana/kit": "8.4.0"
+  }
+}

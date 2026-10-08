@@ -5,9 +5,11 @@ use axum::extract::Query;
 use axum::response::Html;
 use axum::{extract::Form, http::header::HeaderMap, routing, Json, Router};
 use router_lib::model::quote_request::QuoteRequest;
+use router_lib::model::transaction_version::TransactionVersion;
+use super::transaction_v1;
 use router_lib::model::quote_response::{QuoteAccount, QuoteResponse};
 use router_lib::model::swap_request::{SwapForm, SwapRequest};
-use router_lib::model::swap_response::{InstructionResponse, SwapIxResponse, SwapResponse};
+use router_lib::model::swap_response::{InstructionResponse, SwapIxResponse, SwapResponse, TransactionConfig};
 use serde_json::Value;
 use solana_program::address_lookup_table::AddressLookupTableAccount;
 use solana_program::message::VersionedMessage;
@@ -34,7 +36,6 @@ use router_lib::model::quote_response::{RoutePlan, SwapInfo};
 
 // make sure the transaction can be executed
 const MAX_ACCOUNTS_PER_TX: usize = 64;
-const MAX_TX_SIZE: usize = 1232;
 const DEFAULT_COMPUTE_UNIT_PRICE_MICRO_LAMPORTS: u64 = 10_000;
 
 pub struct HttpServer {
@@ -198,12 +199,13 @@ impl HttpServer {
                 "0".to_string(),
                 swap_mode,
                 DEFAULT_COMPUTE_UNIT_PRICE_MICRO_LAMPORTS,
+                input.transaction_version,
             )
             .await?;
 
             let tx_size = built.bytes.len();
             let accounts_count = built.accounts_count;
-            if accounts_count <= MAX_ACCOUNTS_PER_TX && tx_size < MAX_TX_SIZE {
+            if accounts_count <= MAX_ACCOUNTS_PER_TX && tx_size <= input.transaction_version.max_size() {
                 break Ok(route_candidate);
             } else if max_accounts >= 10 {
                 warn!("TX too big ({tx_size} bytes, {accounts_count} accounts), retrying with fewer accounts; max_accounts was {max_accounts}..");
@@ -295,6 +297,7 @@ impl HttpServer {
         Query(_query): Query<SwapForm>,
         Json(input): Json<SwapRequest>,
     ) -> Result<Json<Value>, AppError> {
+        if input.as_legacy_transaction { return Err(anyhow::anyhow!("Legacy transactions are unsupported; request transactionVersion 0 or 1").into()); }
         let route = route_provider.try_from(&input.quote_response)?;
         let swap_mode: SwapMode = SwapMode::from_str(&input.quote_response.swap_mode)
             .map_err(|_| anyhow::Error::msg("Invalid SwapMode"))?;
@@ -330,13 +333,15 @@ impl HttpServer {
             build_threshold,
             swap_mode,
             compute_unit_price_micro_lamports,
+            input.transaction_version,
         )
         .await?;
 
-        if built.bytes.len() > MAX_TX_SIZE || built.accounts_count > MAX_ACCOUNTS_PER_TX {
+        if built.bytes.len() > input.transaction_version.max_size() || built.accounts_count > MAX_ACCOUNTS_PER_TX {
             return Err(anyhow::anyhow!("Route exceeds transaction limits; request a new quote").into());
         }
         let json_response = serde_json::json!(SwapResponse {
+            transaction_version: input.transaction_version,
             swap_transaction: built.bytes,
             last_valid_block_height: built.last_valid_block_height,
             priorization_fee_lamports: built.priority_fee_lamports,
@@ -396,6 +401,7 @@ impl HttpServer {
         other_amount_threshold: String,
         swap_mode: SwapMode,
         compute_unit_price_micro_lamports: u64,
+        transaction_version: TransactionVersion,
     ) -> Result<BuiltSwapTransaction, AppError> {
         let wallet_pk = Pubkey::from_str(&wallet_pk)?;
 
@@ -412,35 +418,33 @@ impl HttpServer {
         let priority_fee_lamports = u64::try_from(
             (u128::from(compute_unit_price_micro_lamports) * u128::from(ixs.cu_estimate) + 999_999) / 1_000_000
         ).map_err(|_| anyhow::anyhow!("Priority fee exceeds lamport range"))?;
-        let compute_budget_ixs = vec![
-            ComputeBudgetInstruction::set_compute_unit_price(compute_unit_price_micro_lamports),
-            ComputeBudgetInstruction::set_compute_unit_limit(ixs.cu_estimate),
-        ];
-
+        let cu_estimate = ixs.cu_estimate;
         let transaction_addresses = ixs.accounts().into_iter().collect();
-        let instructions = compute_budget_ixs
-            .into_iter()
-            .chain(ixs.setup_instructions.into_iter())
-            .chain(vec![ixs.swap_instruction].into_iter())
+        let mut instructions = ixs.setup_instructions.into_iter()
+            .chain(std::iter::once(ixs.swap_instruction))
             .chain(ixs.cleanup_instructions.into_iter())
             .collect_vec();
-
-        let all_alts = Self::load_all_alts(address_lookup_table_addresses, alt_provider).await;
-        let alts = alt_optimizer::get_best_alt(&all_alts, &transaction_addresses)?;
-        let accounts = transaction_addresses.iter().unique().count()
-            + alts.iter().map(|x| x.key).unique().count();
-
         let (blockhash, last_valid_block_height) = hash_provider.get_latest_hash().await?;
-        let v0_message = solana_sdk::message::v0::Message::try_compile(
-            &wallet_pk,
-            instructions.as_slice(),
-            alts.as_slice(),
-            blockhash,
-        )?;
-
-        let message = VersionedMessage::V0(v0_message);
-        let tx = VersionedTransaction::try_new(message, &[&NullSigner::new(&wallet_pk)])?;
-        let bytes = bincode::serialize(&tx)?;
+        let (bytes, accounts) = match transaction_version {
+            TransactionVersion::V1 => transaction_v1::compile_unsigned(
+                &wallet_pk, &instructions, &blockhash, cu_estimate, priority_fee_lamports,
+            )?,
+            TransactionVersion::V0 => {
+                instructions.splice(0..0, [
+                    ComputeBudgetInstruction::set_compute_unit_price(compute_unit_price_micro_lamports),
+                    ComputeBudgetInstruction::set_compute_unit_limit(cu_estimate),
+                ]);
+                let all_alts = Self::load_all_alts(address_lookup_table_addresses, alt_provider).await;
+                let alts = alt_optimizer::get_best_alt(&all_alts, &transaction_addresses)?;
+                let v0_message = solana_sdk::message::v0::Message::try_compile(
+                    &wallet_pk, &instructions, &alts, blockhash,
+                )?;
+                let accounts = v0_message.account_keys.len() + v0_message.address_table_lookups.iter()
+                    .map(|lookup| lookup.writable_indexes.len() + lookup.readonly_indexes.len()).sum::<usize>();
+                let tx = VersionedTransaction::try_new(VersionedMessage::V0(v0_message), &[&NullSigner::new(&wallet_pk)])?;
+                (bincode::serialize(&tx)?, accounts)
+            }
+        };
 
         Ok(BuiltSwapTransaction { bytes, accounts_count: accounts, last_valid_block_height, priority_fee_lamports })
     }
@@ -459,6 +463,7 @@ impl HttpServer {
         Query(_query): Query<SwapForm>,
         Json(input): Json<SwapRequest>,
     ) -> Result<Json<Value>, AppError> {
+        if input.as_legacy_transaction { return Err(anyhow::anyhow!("Legacy transactions are unsupported; request transactionVersion 0 or 1").into()); }
         let wallet_pk = Pubkey::from_str(&input.user_public_key)?;
 
         let route_plan = route_provider.try_from(&input.quote_response)?;
@@ -492,8 +497,10 @@ impl HttpServer {
         )?;
 
         let transaction_addresses = ixs.accounts().into_iter().collect();
-        let all_alts = Self::load_all_alts(address_lookup_table_addresses, alt_provider).await;
-        let alts = alt_optimizer::get_best_alt(&all_alts, &transaction_addresses)?;
+        let alts = if input.transaction_version == TransactionVersion::V0 {
+            let all_alts = Self::load_all_alts(address_lookup_table_addresses, alt_provider).await;
+            alt_optimizer::get_best_alt(&all_alts, &transaction_addresses)?
+        } else { vec![] };
 
         let swap_ix = InstructionResponse::from_ix(ixs.swap_instruction)?;
         let setup_ixs: anyhow::Result<Vec<_>> = ixs
@@ -507,16 +514,26 @@ impl HttpServer {
             .map(|x| InstructionResponse::from_ix(x))
             .collect();
 
-        let compute_budget_ixs = vec![
+        let compute_budget_ixs = if input.transaction_version == TransactionVersion::V0 { vec![
             InstructionResponse::from_ix(ComputeBudgetInstruction::set_compute_unit_price(
                 compute_unit_price_micro_lamports,
             ))?,
             InstructionResponse::from_ix(ComputeBudgetInstruction::set_compute_unit_limit(
                 ixs.cu_estimate,
             ))?,
-        ];
+        ] } else { vec![] };
+        let transaction_config = if input.transaction_version == TransactionVersion::V1 {
+            Some(TransactionConfig {
+                compute_unit_limit: ixs.cu_estimate,
+                loaded_accounts_data_size_limit: transaction_v1::MAX_LOADED_ACCOUNT_BYTES,
+                priority_fee_lamports: u64::try_from((u128::from(compute_unit_price_micro_lamports)
+                    * u128::from(ixs.cu_estimate) + 999_999) / 1_000_000)?,
+            })
+        } else { None };
 
         let json_response = serde_json::json!(SwapIxResponse {
+            transaction_version: input.transaction_version,
+            transaction_config,
             token_ledger_instruction: None,
             compute_budget_instructions: Some(compute_budget_ixs),
             setup_instructions: Some(setup_ixs?),

@@ -3,11 +3,12 @@ use solana_sdk::instruction::Instruction;
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
 
+#[serde_with::serde_as]
 #[derive(Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-#[serde_with::serde_as]
 pub struct SwapResponse {
-    #[serde_as(as = "Base64")]
+    pub transaction_version: super::transaction_version::TransactionVersion,
+    #[serde_as(as = "serde_with::base64::Base64")]
     pub swap_transaction: Vec<u8>,
     pub last_valid_block_height: u64,
     #[serde(rename = "prioritizationFeeLamports")]
@@ -17,12 +18,24 @@ pub struct SwapResponse {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SwapIxResponse {
+    #[serde(default)]
+    pub transaction_version: super::transaction_version::TransactionVersion,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transaction_config: Option<TransactionConfig>,
     pub token_ledger_instruction: Option<InstructionResponse>,
     pub compute_budget_instructions: Option<Vec<InstructionResponse>>,
     pub setup_instructions: Option<Vec<InstructionResponse>>,
     pub swap_instruction: InstructionResponse,
     pub cleanup_instructions: Option<Vec<InstructionResponse>>,
     pub address_lookup_table_addresses: Option<Vec<String>>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TransactionConfig {
+    pub compute_unit_limit: u32,
+    pub loaded_accounts_data_size_limit: u32,
+    pub priority_fee_lamports: u64,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -92,5 +105,24 @@ impl TryFrom<&AccountMeta> for solana_sdk::instruction::AccountMeta {
             is_signer: m.is_signer.unwrap_or(false),
             is_writable: m.is_writable.unwrap_or(false),
         })
+    }
+}
+
+#[cfg(test)]
+mod wire_tests {
+    use super::*;
+    #[test]
+    fn swap_wire_is_base64_and_reports_actual_version_and_expiry() {
+        let response = SwapResponse {
+            transaction_version: super::super::transaction_version::TransactionVersion::V1,
+            swap_transaction: vec![0x81, 1, 0, 0],
+            last_valid_block_height: 123,
+            priorization_fee_lamports: 42,
+        };
+        let json = serde_json::to_value(response).unwrap();
+        assert_eq!(json["swapTransaction"], "gQEAAA==");
+        assert_eq!(json["transactionVersion"], "1");
+        assert_eq!(json["lastValidBlockHeight"], 123);
+        assert_eq!(json["prioritizationFeeLamports"], 42);
     }
 }

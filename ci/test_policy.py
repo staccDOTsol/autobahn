@@ -4,6 +4,9 @@ from policy import changed_adapters, Rejected
 def file(name,status='added'): return {'filename':name,'status':status}
 class PolicyTests(unittest.TestCase):
  def test_adapter(self): self.assertEqual(changed_adapters([file('adapters/meteora-dbc.json'),file('lib/dex-meteora-dbc/src/lib.rs'),file('Cargo.lock','modified')]),['meteora-dbc'])
+ def test_sdk_worker_allowed(self): self.assertEqual(changed_adapters([file('lib/dex-meteora-dbc/worker/engine.mjs'),file('lib/dex-meteora-dbc/worker/package-lock.json'),file('lib/dex-meteora-dbc/worker/test/dbc.test.mjs')]),['meteora-dbc'])
+ def test_worker_install_config_rejected(self):
+  with self.assertRaises(Rejected): changed_adapters([file('lib/dex-a/worker/.npmrc')])
  def test_no_label_or_author_gate(self): self.assertEqual(changed_adapters([file('lib/dex-new-venue/src/lib.rs')]),['new-venue'])
  def test_workflow_rejected(self):
   with self.assertRaises(Rejected): changed_adapters([file('.github/workflows/adapter-ci.yml','modified')])

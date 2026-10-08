@@ -3,10 +3,8 @@ use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use std::sync::Arc;
 
-use anchor_lang::Id;
 use anchor_spl::token::spl_token;
 use anchor_spl::token::spl_token::state::{Account, AccountState};
-use anchor_spl::token_2022::Token2022;
 use anyhow::Context;
 use itertools::Itertools;
 use solana_program::program_pack::Pack;
@@ -14,7 +12,7 @@ use solana_program::pubkey::Pubkey;
 use solana_sdk::account::ReadableAccount;
 use whirlpools_client::state::Whirlpool;
 
-use router_feed_lib::router_rpc_client::{RouterRpcClient, RouterRpcClientTrait};
+use router_feed_lib::router_rpc_client::RouterRpcClient;
 use router_lib::dex::{
     AccountProviderView, DexEdge, DexEdgeIdentifier, DexInterface, DexSubscriptionMode, Quote,
     SwapInstruction,
@@ -91,7 +89,21 @@ impl DexInterface for OrcaDex {
         id: &Arc<dyn DexEdgeIdentifier>,
         chain_data: &AccountProviderView,
     ) -> anyhow::Result<Arc<dyn DexEdge>> {
+        let pool_account = chain_data.account(&id.key())?;
+        anyhow::ensure!(
+            *pool_account.account.owner() == self.program_id,
+            "Invalid Whirlpool owner"
+        );
         let wp = load_whirpool(chain_data, &id.key())?;
+        // Validate only the pool being quoted, against the same request snapshot.
+        // Hydrating every vault on the venue delayed discovery by many minutes.
+        for (vault, mint) in [
+            (wp.token_vault_a, wp.token_mint_a),
+            (wp.token_vault_b, wp.token_mint_b),
+        ] {
+            let account = chain_data.account(&vault)?;
+            validate_vault(&account.account, mint, id.key())?;
+        }
         Ok(Arc::new(OrcaEdge { whirlpool: wp }))
     }
 
@@ -219,34 +231,9 @@ impl OrcaDex {
     ) -> anyhow::Result<HashMap<Pubkey, Vec<Arc<dyn DexEdgeIdentifier>>>> {
         let whirlpools = fetch_all_whirlpools(rpc, program_id).await?;
 
-        let vaults = whirlpools
-            .iter()
-            .flat_map(|x| [x.1.token_vault_a, x.1.token_vault_b])
-            .collect::<HashSet<_>>();
-
-        let vaults = rpc.get_multiple_accounts(&vaults).await?;
-        let banned_vaults = vaults
-            .iter()
-            .filter(|x| {
-                x.1.owner == Token2022::id()
-                    || spl_token::state::Account::unpack(x.1.data())
-                        .unwrap_or(Account {
-                            state: AccountState::Frozen,
-                            ..Default::default()
-                        })
-                        .state
-                        == AccountState::Frozen
-            })
-            .map(|x| x.0)
-            .collect::<HashSet<_>>();
-
-        let filtered_pools = whirlpools
-            .into_iter()
-            .filter(|(_wp_pk, wp)| {
-                !banned_vaults.contains(&wp.token_vault_a)
-                    && !banned_vaults.contains(&wp.token_vault_b)
-            })
-            .collect_vec();
+        // Vault state is checked when loading a requested pool, not by downloading
+        // every token account on the venue before publishing the graph.
+        let filtered_pools = whirlpools;
 
         // TODO: actually need to dynamically adjust subscriptions based on the tick?
         let tick_arrays = filtered_pools
@@ -326,5 +313,53 @@ impl DexEdgeIdentifier for OrcaEdgeIdentifier {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+}
+
+fn validate_vault(
+    account: &solana_sdk::account::AccountSharedData,
+    mint: Pubkey,
+    authority: Pubkey,
+) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        *account.owner() == spl_token::id(),
+        "Unsupported Whirlpool vault token program"
+    );
+    let vault = Account::unpack(account.data())?;
+    anyhow::ensure!(
+        vault.state == AccountState::Initialized,
+        "Whirlpool vault is frozen or uninitialized"
+    );
+    anyhow::ensure!(
+        vault.mint == mint && vault.owner == authority,
+        "Whirlpool vault identity mismatch"
+    );
+    Ok(())
+}
+
+#[cfg(test)]
+mod discovery_tests {
+    use super::*;
+    use solana_sdk::account::{AccountSharedData, WritableAccount};
+    #[test]
+    fn lazy_vault_checks_reject_frozen_foreign_and_wrong_identity_accounts() {
+        let mint = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
+        let mut data = AccountSharedData::new(1, Account::LEN, &spl_token::id());
+        let mut token = Account {
+            mint,
+            owner: authority,
+            state: AccountState::Initialized,
+            ..Default::default()
+        };
+        Account::pack(token, data.data_as_mut_slice()).unwrap();
+        validate_vault(&data, mint, authority).unwrap();
+        assert!(validate_vault(&data, Pubkey::new_unique(), authority).is_err());
+        assert!(validate_vault(&data, mint, Pubkey::new_unique()).is_err());
+        token.state = AccountState::Frozen;
+        Account::pack(token, data.data_as_mut_slice()).unwrap();
+        assert!(validate_vault(&data, mint, authority).is_err());
+        data.set_owner(Pubkey::new_unique());
+        assert!(validate_vault(&data, mint, authority).is_err());
     }
 }

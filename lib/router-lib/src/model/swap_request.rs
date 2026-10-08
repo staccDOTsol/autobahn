@@ -13,6 +13,8 @@ pub struct SwapForm {
 #[allow(dead_code)]
 #[serde(rename_all = "camelCase")]
 pub struct SwapRequest {
+    #[serde(default)]
+    pub transaction_version: super::transaction_version::TransactionVersion,
     pub user_public_key: String,
     #[serde(default = "default_true")]
     pub wrap_and_unwrap_sol: bool,

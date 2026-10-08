@@ -20,13 +20,13 @@ pub struct QuoteResponse {
     pub time_taken: f64,
 }
 
+#[serde_with::serde_as]
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-#[serde_with::serde_as]
 pub struct QuoteAccount {
     pub address: String,
     pub slot: u64,
-    #[serde_as(as = "Base64")]
+    #[serde_as(as = "serde_with::base64::Base64")]
     pub data: Vec<u8>,
 }
 

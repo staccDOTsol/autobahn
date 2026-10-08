@@ -539,3 +539,81 @@ fn unavailable_price_impact_serializes_as_null_and_round_trips() {
     assert_eq!(parsed.price_impact_pct, None);
     assert!(provider.try_from(&parsed).is_ok());
 }
+
+#[tokio::test]
+async fn initial_pair_snapshot_preserves_existing_filters_and_queries_both_orientations() {
+    use solana_client::rpc_config::RpcProgramAccountsConfig;
+    use solana_client::rpc_filter::RpcFilterType;
+    struct RecordingRpc(Arc<Mutex<Vec<RpcProgramAccountsConfig>>>);
+    #[async_trait::async_trait]
+    impl RouterRpcClientTrait for RecordingRpc {
+        async fn get_account(
+            &mut self,
+            _: &Pubkey,
+        ) -> anyhow::Result<Option<solana_sdk::account::Account>> {
+            unreachable!()
+        }
+        async fn get_multiple_accounts(
+            &mut self,
+            _: &HashSet<Pubkey>,
+        ) -> anyhow::Result<Vec<(Pubkey, solana_sdk::account::Account)>> {
+            unreachable!()
+        }
+        async fn get_program_accounts_with_config(
+            &mut self,
+            _: &Pubkey,
+            config: RpcProgramAccountsConfig,
+        ) -> anyhow::Result<Vec<router_feed_lib::account_write::AccountWrite>> {
+            self.0.lock().unwrap().push(config);
+            Ok(vec![])
+        }
+        fn is_gpa_compression_enabled(&self) -> bool {
+            false
+        }
+    }
+    let calls = Arc::new(Mutex::new(vec![]));
+    let a = Pubkey::new_unique();
+    let b = Pubkey::new_unique();
+    let mut rpc = PairDiscoveryRpc {
+        inner: RouterRpcClient {
+            rpc: Box::new(RecordingRpc(calls.clone())),
+            gpa_compression_enabled: false,
+        },
+        pair: (a, b),
+    };
+    let config = RpcProgramAccountsConfig {
+        filters: Some(vec![RpcFilterType::DataSize(653)]),
+        ..Default::default()
+    };
+    rpc.get_program_accounts_with_config(
+        &"whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"
+            .parse()
+            .unwrap(),
+        config.clone(),
+    )
+    .await
+    .unwrap();
+    {
+        let calls = calls.lock().unwrap();
+        assert_eq!(calls.len(), 2);
+        for (call, left, right) in [(&calls[0], a, b), (&calls[1], b, a)] {
+            let filters = call.filters.as_ref().unwrap();
+            assert_eq!(filters[0], RpcFilterType::DataSize(653));
+            assert_eq!(filters.len(), 3);
+            let mut account = vec![0; 653];
+            account[101..133].copy_from_slice(left.as_ref());
+            account[181..213].copy_from_slice(right.as_ref());
+            for filter in &filters[1..] {
+                let RpcFilterType::Memcmp(check) = filter else {
+                    panic!("missing mint filter")
+                };
+                assert!(check.bytes_match(&account));
+            }
+        }
+    }
+    // Unrelated program requests remain unchanged; bootstrap is not a global token allowlist.
+    rpc.get_program_accounts_with_config(&Pubkey::new_unique(), config)
+        .await
+        .unwrap();
+    assert_eq!(calls.lock().unwrap()[2].filters.as_ref().unwrap().len(), 1);
+}

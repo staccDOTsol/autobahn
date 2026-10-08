@@ -83,6 +83,7 @@ impl RouterClient {
         let query_args: Vec<String> = vec![];
 
         let request = SwapRequest {
+            transaction_version: crate::model::transaction_version::TransactionVersion::V0,
             user_public_key: wallet.to_string(),
             wrap_and_unwrap_sol,
             auto_create_out_ata: true,

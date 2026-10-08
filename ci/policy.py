@@ -17,6 +17,7 @@ def changed_adapters(files):
         if name in GENERATED: continue
         if '\\' in name or any(p in {'.','..'} for p in PurePosixPath(name).parts): raise Rejected('unsafe path')
         match=re.fullmatch(rf'lib/dex-({ID})/(?:src|tests|fixtures)/.+',name)
+        if not match: match=re.fullmatch(rf'lib/dex-({ID})/worker/(?:[a-zA-Z0-9_-]+[.]mjs|package(?:-lock)?[.]json|test/[a-zA-Z0-9_.-]+[.](?:mjs|json))',name)
         if not match: match=re.fullmatch(rf'lib/dex-({ID})/(?:Cargo.toml|README.md|LICENSE(?:.md)?)',name)
         if not match: match=re.fullmatch(rf'adapters/({ID})[.]json',name)
         if not match: raise Rejected(f'outside adapter scope: {name}')

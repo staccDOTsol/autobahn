@@ -6,6 +6,8 @@ use crate::dex::SwapMode;
 #[allow(dead_code)]
 #[serde(rename_all = "camelCase")]
 pub struct QuoteRequest {
+    #[serde(default)]
+    pub transaction_version: super::transaction_version::TransactionVersion,
     pub input_mint: String,
     pub output_mint: String,
     pub amount: u64,

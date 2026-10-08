@@ -1,12 +1,12 @@
 # Router inventory — 2026-10-07
 
-This checkout is `/Users/stacc/aggregator-ag`, isolated from the user's existing apps. Base: `staccDOTsol/autobahn` commit `b8e81adde677745630c30cb08e297ba40260036f` (private fork, AGPL-3.0). No private source is being published by the inventory.
+This checkout is `/Users/stacc/aggregator-ag`, isolated from the user's existing apps. Base: `staccDOTsol/autobahn` commit `b8e81adde677745630c30cb08e297ba40260036f` (AGPL-3.0). The user authorized publication; the router repository is now public on `main`.
 
 ## Existing implementations
 
 | Source | Reusable implementation | Evidence and limitations |
 | --- | --- | --- |
-| `staccDOTsol/autobahn` | Rust route graph, account refresh, route cache, quote/swap/swap-instructions API, atomic CPI executor, ALT optimizer; Orca, Raydium CP/CLMM, Saber, OpenBook, Invariant, Infinity adapters | Actual code in this checkout. Startup-only discovery and observational swap repricing need correction. Pinned 2024 dependencies need current-toolchain repairs. No claim of a live new deployment. |
+| `staccDOTsol/autobahn` | Rust route graph, account refresh, route cache, quote/swap/swap-instructions API, atomic CPI executor, ALT optimizer; Orca, Raydium CPMM/AMM v4, Saber, OpenBook, Invariant, Infinity adapters | Actual code in this checkout. Startup-only discovery and observational swap repricing need correction. Pinned 2024 dependencies need current-toolchain repairs. No claim of a live new deployment. |
 | `staccDOTsol/Web3-DEX-Router-Solana-V1` | MIT on-chain executor with roughly 50 venue CPI adapters, including Meteora DBC | Actual instruction builders, not an off-chain quotation/discovery engine. Preserve ABI/provenance when using. No existing CI runs found. |
 | `/Users/stacc/solana-liquidity-engine` at `50c64119edebbb8c72d0ddceb4ee1f25e2d673ca` | Permissionless SPL/Sanctum LST quotes, deposit/redemption, WSOL bridge, S controller, liquidity mint/burn | Historical tracked files are staged deletions in original checkout; do not restore over eat.ag work. Original engine declares Apache-2.0. S/Sanctum vendored licensing must be resolved separately. S pool documented uninitialized on mainnet. |
 | `staccDOTsol/permissionless-lst` | S pool fork, exact swaps, LP entry/exit, Token-2022 fee handling, Jupiter interface ~0.4 | Native adapter source exists, but no root license found; controller/pool deployment not established. No assumption of Jupiter acceptance. |

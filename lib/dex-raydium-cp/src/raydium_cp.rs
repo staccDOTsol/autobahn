@@ -1,8 +1,7 @@
 use crate::edge::{swap_base_input, swap_base_output, RaydiumCpEdge, RaydiumCpEdgeIdentifier};
 use crate::raydium_cp_ix_builder;
 use anchor_lang::{AccountDeserialize, Discriminator, Id};
-use anchor_spl::token::spl_token::state::AccountState;
-use anchor_spl::token::{spl_token, Token};
+use anchor_spl::token::Token;
 use anchor_spl::token_2022::spl_token_2022;
 use anyhow::Context;
 use async_trait::async_trait;
@@ -46,30 +45,11 @@ impl DexInterface for RaydiumCpDex {
         let pools =
             fetch_raydium_account::<PoolState>(rpc, RaydiumCpSwap::id(), PoolState::LEN).await?;
 
-        let vaults = pools
-            .iter()
-            .flat_map(|x| [x.1.token_0_vault, x.1.token_1_vault])
-            .collect::<HashSet<_>>();
-        let vaults = rpc.get_multiple_accounts(&vaults).await?;
-        let banned_vaults = vaults
-            .iter()
-            .filter(|x| {
-                x.1.owner == Token::id()
-                    && spl_token::state::Account::unpack(x.1.data()).unwrap().state
-                        == AccountState::Frozen
-            })
-            .map(|x| x.0)
-            .collect::<HashSet<_>>();
-
         let pools = pools
             .iter()
             .filter(|(_pool_pk, pool)| {
                 pool.token_0_program == Token::id() && pool.token_1_program == Token::id()
                 // TODO Remove filter when 2022 are working
-            })
-            .filter(|(_pool_pk, pool)| {
-                !banned_vaults.contains(&pool.token_0_vault)
-                    && !banned_vaults.contains(&pool.token_1_vault)
             })
             .collect_vec();
 
@@ -160,6 +140,10 @@ impl DexInterface for RaydiumCpDex {
             .unwrap();
 
         let pool_account = chain_data.account(&id.pool)?;
+        anyhow::ensure!(
+            *pool_account.account.owner() == RaydiumCpSwap::id(),
+            "Invalid Raydium CP pool owner"
+        );
         let pool = PoolState::try_deserialize(&mut pool_account.account.data())?;
         let config_account = chain_data.account(&pool.amm_config)?;
         let config = AmmConfig::try_deserialize(&mut config_account.account.data())?;
@@ -170,6 +154,32 @@ impl DexInterface for RaydiumCpDex {
         let vault_1_account = chain_data.account(&pool.token_1_vault)?;
         let vault_1 = spl_token_2022::state::Account::unpack(vault_1_account.account.data())?;
 
+        // Discovery does not hydrate all venue vaults. Validate each requested
+        // pool from its current quote snapshot before admitting an executable edge.
+        for (account, vault, mint, program) in [
+            (
+                &vault_0_account.account,
+                &vault_0,
+                pool.token_0_mint,
+                pool.token_0_program,
+            ),
+            (
+                &vault_1_account.account,
+                &vault_1,
+                pool.token_1_mint,
+                pool.token_1_program,
+            ),
+        ] {
+            anyhow::ensure!(
+                program == Token::id() && *account.owner() == program,
+                "Unsupported Raydium CP vault token program"
+            );
+            anyhow::ensure!(
+                vault.state == spl_token_2022::state::AccountState::Initialized,
+                "Raydium CP vault is frozen or uninitialized"
+            );
+            anyhow::ensure!(vault.mint == mint, "Raydium CP vault mint mismatch");
+        }
         let transfer_0_fee = None;
         let transfer_1_fee = None;
 

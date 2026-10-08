@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { getTransactionDecoder, getTransactionEncoder, getCompiledTransactionMessageDecoder } from '@solana/kit';
+const fixture = JSON.parse(await readFile(new URL('./fixtures/dbc-swap.json', import.meta.url)));
+const bytes = Buffer.from(fixture.swapTransaction, 'base64');
+const tx = getTransactionDecoder().decode(bytes);
+const message = getCompiledTransactionMessageDecoder().decode(tx.messageBytes);
+assert.equal(message.version, 1);
+assert.equal(message.configMask, 15);
+assert.deepEqual(message.configValues, [{kind:'u64',value:2820n},{kind:'u32',value:282000},{kind:'u32',value:67108864}]);
+assert.equal(message.numStaticAccounts,16);
+assert.equal(message.numInstructions,2);
+assert.equal(message.staticAccounts[0],'GMc8tLpcKqQq6VonWHSckm9PSpGqiK6STfdARMK5AT6i');
+assert.equal(message.staticAccounts[message.instructionHeaders[1].programAccountIndex],'AutobNFLMzX1rFCDgwWpwr3ztG5c1oDbSrGq7Jj2LgE');
+assert.deepEqual(Buffer.from(getTransactionEncoder().encode(tx)),bytes);
+console.log('Independent Solana Kit 8.4.0 decode/encode of Rust-built DBC V1 transaction passed');

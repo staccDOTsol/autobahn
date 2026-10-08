@@ -11,7 +11,10 @@ use crate::{
 };
 use mango_feeds_connector::chain_data::AccountData;
 use router_config_lib::Config;
-use router_feed_lib::{router_rpc_client::RouterRpcClient, router_rpc_wrapper::RouterRpcWrapper};
+use router_feed_lib::{
+    router_rpc_client::{RouterRpcClient, RouterRpcClientTrait},
+    router_rpc_wrapper::RouterRpcWrapper,
+};
 use router_lib::{
     dex::{AccountProvider, AccountProviderView, DexInterface, SwapMode},
     model::quote_response::QuoteResponse,
@@ -244,6 +247,68 @@ struct LegacyCache {
     adapters: HashMap<&'static str, Arc<dyn DexInterface>>,
     status: HashMap<&'static str, String>,
     attempted: HashMap<&'static str, Instant>,
+    bootstrapped: HashSet<&'static str>,
+}
+
+// First publish a small, genuine SOL/USDC snapshot, then expand to every pool.
+// The mint filters only affect this bootstrap RPC wrapper, never ongoing discovery.
+struct PairDiscoveryRpc {
+    inner: RouterRpcClient,
+    pair: (Pubkey, Pubkey),
+}
+#[async_trait::async_trait]
+impl RouterRpcClientTrait for PairDiscoveryRpc {
+    async fn get_account(
+        &mut self,
+        key: &Pubkey,
+    ) -> anyhow::Result<Option<solana_sdk::account::Account>> {
+        self.inner.get_account(key).await
+    }
+    async fn get_multiple_accounts(
+        &mut self,
+        keys: &HashSet<Pubkey>,
+    ) -> anyhow::Result<Vec<(Pubkey, solana_sdk::account::Account)>> {
+        self.inner.get_multiple_accounts(keys).await
+    }
+    async fn get_program_accounts_with_config(
+        &mut self,
+        program: &Pubkey,
+        config: solana_client::rpc_config::RpcProgramAccountsConfig,
+    ) -> anyhow::Result<Vec<router_feed_lib::account_write::AccountWrite>> {
+        let offsets = match program.to_string().as_str() {
+            // Offsets in the existing adapter's serialized Whirlpool/PoolState/AmmInfo layouts.
+            "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc" => Some((101, 181)),
+            "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C" => Some((168, 200)),
+            "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8" => Some((400, 432)),
+            _ => None,
+        };
+        let Some((a, b)) = offsets else {
+            return self
+                .inner
+                .get_program_accounts_with_config(program, config)
+                .await;
+        };
+        let mut accounts = Vec::new();
+        for (left, right) in [self.pair, (self.pair.1, self.pair.0)] {
+            let mut filtered = config.clone();
+            let filters = filtered.filters.get_or_insert_with(Vec::new);
+            filters.push(solana_client::rpc_filter::RpcFilterType::Memcmp(
+                solana_client::rpc_filter::Memcmp::new_raw_bytes(a, left.to_bytes().to_vec()),
+            ));
+            filters.push(solana_client::rpc_filter::RpcFilterType::Memcmp(
+                solana_client::rpc_filter::Memcmp::new_raw_bytes(b, right.to_bytes().to_vec()),
+            ));
+            accounts.extend(
+                self.inner
+                    .get_program_accounts_with_config(program, filtered)
+                    .await?,
+            );
+        }
+        Ok(accounts)
+    }
+    fn is_gpa_compression_enabled(&self) -> bool {
+        false
+    }
 }
 
 pub struct RpcRouteProvider {
@@ -262,6 +327,24 @@ impl RpcRouteProvider {
         Ok(RouterRpcClient {
             rpc: Box::new(RouterRpcWrapper {
                 rpc: super::build_rpc(source),
+                gpa_compression_enabled: false,
+            }),
+            gpa_compression_enabled: false,
+        })
+    }
+    fn discovery_rpc(&self) -> anyhow::Result<RouterRpcClient> {
+        let mut source = self
+            .config
+            .sources
+            .first()
+            .context("RPC source missing")?
+            .clone();
+        // Background full-venue snapshots are larger than per-quote account reads.
+        // Keep the trading RPC timeout unchanged, and bound the complete initializer below.
+        source.request_timeout_in_seconds = Some(60);
+        Ok(RouterRpcClient {
+            rpc: Box::new(RouterRpcWrapper {
+                rpc: super::build_rpc(&source),
                 gpa_compression_enabled: false,
             }),
             gpa_compression_enabled: false,
@@ -417,7 +500,7 @@ impl RpcRouteProvider {
         ]
     }
     async fn refresh_legacy(&self) -> anyhow::Result<bool> {
-        let venue = {
+        let (venue, bootstrap) = {
             let mut cache = self.legacy.lock().unwrap();
             let selected = self
                 .legacy_venues()
@@ -436,37 +519,59 @@ impl RpcRouteProvider {
             };
             cache.status.insert(name, "loading".into());
             cache.attempted.insert(name, Instant::now());
-            name
+            let bootstrap =
+                matches!(name, "Orca" | "RaydiumCP" | "Raydium") && cache.bootstrapped.insert(name);
+            (name, bootstrap)
         };
-        let mut rpc = self.rpc()?;
+        let mut rpc = self.discovery_rpc()?;
+        if bootstrap {
+            rpc = RouterRpcClient {
+                rpc: Box::new(PairDiscoveryRpc {
+                    inner: rpc,
+                    pair: (
+                        "So11111111111111111111111111111111111111112".parse()?,
+                        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".parse()?,
+                    ),
+                }),
+                gpa_compression_enabled: false,
+            };
+        }
         let empty = HashMap::new();
-        let result = match venue {
-            "Orca" | "Cropper" => {
-                dex_orca::OrcaDex::initialize(
-                    &mut rpc,
-                    HashMap::from([
-                        (
-                            "program_id".into(),
-                            if venue == "Orca" {
-                                "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"
-                            } else {
-                                "H8W3ctz92svYg6mkn1UtGfu2aQr2fnUFHM1RhScEtQDt"
-                            }
-                            .into(),
-                        ),
-                        ("program_name".into(), venue.into()),
-                    ]),
-                )
-                .await
-            }
-            "RaydiumCP" => dex_raydium_cp::RaydiumCpDex::initialize(&mut rpc, empty).await,
-            "Raydium" => dex_raydium::RaydiumDex::initialize(&mut rpc, empty).await,
-            "Saber" => dex_saber::SaberDex::initialize(&mut rpc, empty).await,
-            "OpenbookV2" => dex_openbook_v2::OpenbookV2Dex::initialize(&mut rpc, empty).await,
-            "Infinity" => dex_infinity::InfinityDex::initialize(&mut rpc, empty).await,
-            "Invariant" => dex_invariant::InvariantDex::initialize(&mut rpc, empty).await,
-            _ => unreachable!(),
-        };
+        let result = bounded_discovery(
+            async {
+                match venue {
+                    "Orca" | "Cropper" => {
+                        dex_orca::OrcaDex::initialize(
+                            &mut rpc,
+                            HashMap::from([
+                                (
+                                    "program_id".into(),
+                                    if venue == "Orca" {
+                                        "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"
+                                    } else {
+                                        "H8W3ctz92svYg6mkn1UtGfu2aQr2fnUFHM1RhScEtQDt"
+                                    }
+                                    .into(),
+                                ),
+                                ("program_name".into(), venue.into()),
+                            ]),
+                        )
+                        .await
+                    }
+                    "RaydiumCP" => dex_raydium_cp::RaydiumCpDex::initialize(&mut rpc, empty).await,
+                    "Raydium" => dex_raydium::RaydiumDex::initialize(&mut rpc, empty).await,
+                    "Saber" => dex_saber::SaberDex::initialize(&mut rpc, empty).await,
+                    "OpenbookV2" => {
+                        dex_openbook_v2::OpenbookV2Dex::initialize(&mut rpc, empty).await
+                    }
+                    "Infinity" => dex_infinity::InfinityDex::initialize(&mut rpc, empty).await,
+                    "Invariant" => dex_invariant::InvariantDex::initialize(&mut rpc, empty).await,
+                    _ => unreachable!(),
+                }
+            },
+            Duration::from_secs(90),
+        )
+        .await;
         {
             let mut cache = self.legacy.lock().unwrap();
             match result {
@@ -483,6 +588,14 @@ impl RpcRouteProvider {
             }
         }
         self.publish_graph();
+        if bootstrap {
+            // All never-attempted venues get a turn before the full expansion.
+            self.legacy
+                .lock()
+                .unwrap()
+                .attempted
+                .insert(venue, Instant::now() - VENUE_REDISCOVERY);
+        }
         Ok(true)
     }
     pub fn discovery_status(&self) -> serde_json::Value {

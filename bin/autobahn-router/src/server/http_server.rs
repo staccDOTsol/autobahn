@@ -597,7 +597,7 @@ impl HttpServer {
     ) -> anyhow::Result<Router<()>> {
         metrics::HTTP_REQUESTS_FAILED.reset();
 
-        let mut router = Router::new();
+        let mut router = Router::new().merge(super::liquidity_operations::routes());
         let cors = CorsLayer::new()
             .allow_methods(AllowMethods::any())
             .allow_headers(AllowHeaders::any())

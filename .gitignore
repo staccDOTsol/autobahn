@@ -10,6 +10,7 @@ config
 profile.json
 *.lz4
 node_modules/
+lib/liquidity-operations/worker/target-readonly/
 __pycache__/
 .env*
 !.env.example

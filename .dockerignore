@@ -3,6 +3,7 @@
 .anchor
 test-ledger
 target
+**/target-readonly
 
 **/*.rs.bk
 

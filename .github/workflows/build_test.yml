@@ -22,6 +22,8 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/work" -w /work adapter-validation bash -euc '
             npm ci --prefix lib/dex-meteora-dbc/worker --ignore-scripts --omit=dev --no-audit --no-fund
+            npm ci --prefix lib/liquidity-operations/worker --ignore-scripts --omit=dev --no-audit --no-fund
+            npm test --prefix lib/liquidity-operations/worker
             cargo build --locked --workspace --all-targets
             cargo test --locked -p autobahn-router --bin autobahn-router
             cargo test --locked -p dex-meteora-dbc -p dex-stake-pool --lib

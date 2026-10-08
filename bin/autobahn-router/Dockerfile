@@ -19,6 +19,7 @@ COPY --from=plan /app/recipe.json recipe.json
 RUN cargo chef cook --release --locked --package autobahn-router --recipe-path recipe.json
 COPY . .
 RUN npm ci --prefix lib/dex-meteora-dbc/worker --ignore-scripts --omit=dev --no-audit --no-fund
+RUN npm ci --prefix lib/liquidity-operations/worker --ignore-scripts --omit=dev --no-audit --no-fund
 RUN cargo build --locked --release --bin autobahn-router
 
 FROM --platform=linux/amd64 debian:bookworm-slim AS run
@@ -30,6 +31,8 @@ COPY --from=build $CONFIG_PATH /usr/local/bin/template-config.toml
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=build /app/lib/dex-meteora-dbc/worker /app/lib/dex-meteora-dbc/worker
 ENV DBC_WORKER_PATH=/app/lib/dex-meteora-dbc/worker/worker.mjs
+COPY --from=build /app/lib/liquidity-operations/worker /app/lib/liquidity-operations/worker
+ENV LIQUIDITY_WORKER_PATH=/app/lib/liquidity-operations/worker/worker.mjs
 
 RUN adduser --system --group --no-create-home mangouser
 USER mangouser

@@ -70,6 +70,13 @@ Browser-wallet signing pass (the one step the script receipts could not cover): 
 Raydium CLMM add, signed in the browser: https://solscan.io/tx/VXwJcsc7GMQFrceVckMXWHRx4ZQosUijkUx1pe2H2vQKjMdJQTUpkgeb2DUGwwp1YdUttuxkr7PQfwk45GyqGAA
 ```
 
+Composed multi-hop swap through the on-chain zap composer ([staccDOTsol/lp-zap](https://github.com/staccDOTsol/lp-zap), program `BHYw1FAWPriW9Gh7BG49X4UVe96CDjaxFrFFUtGSQmRx`): USDC → SOL → BORDR in one transaction, hop 2 sized on chain from hop 1's real output, 10 bps per hop in kind:
+
+```text
+Composed 2-hop swap: https://solscan.io/tx/4yosNpvSLK2Sn6SmJbh6M7BxnxYKiBCg7XZMoM2RfHBr2Sn7yxDpvtSHaEiXArC2UtzfZTCCLqX4hLa9fMyME8k2
+Composer program deploy: https://solscan.io/tx/2F3dGfz6G9znv4oVdk33T2qHvoXof6WeL8qArBDiufFoAu3MwzVP7CRa2iLCdTXMwJtLJ1uzHSAn463JzLpQk16b
+```
+
 [Machine-readable receipts with request, quote, simulation, fees and token balance changes](docs/mainnet-receipts.json).
 
 LST program: `5f7YRhNMtZxAANQQV4B78keMFGiz8gTvAHA4p3Dj3kLp`, deployment https://solscan.io/tx/4hgSvfSyjJi6xEyJpKeKb3HuC2s6XQ5LQV642XwaxQzxWrJ1idyuXtXC8scMmF8atG1UYYjM5N7dgbWC2gMvQ225. [Finalized deployment and binary hash](docs/lst-deployment-mainnet.json), [on-chain bytecode verification](docs/lst-bridge-verification-mainnet.json). Deployment alone does not prove mainnet LST deposit/redemption.

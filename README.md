@@ -64,6 +64,12 @@ Orca Whirlpools add: https://solscan.io/tx/2r5ViD4DLBRD5LabddNCvubr587NmL4e1dgQf
 Orca Whirlpools remove: https://solscan.io/tx/NwTDGCp4BkDFxzp3YR46YF1ibbdSyEkuAG6wNLhhZiB87UPaUg6vMyXQhg7gGGB7jR4ACUoar1FKuFBY6RugkT5
 ```
 
+Browser-wallet signing pass (the one step the script receipts could not cover): the owner opened www.liquidityxyz.fun in a browser, connected the sample wallet, quoted a Raydium CLMM add on pool `2JtkunkYCRbe5YZuGU6kLFmNwN22Ba1pCicHoqW5Eqja`, and approved it in the wallet. Confirmed on mainnet:
+
+```text
+Raydium CLMM add, signed in the browser: https://solscan.io/tx/VXwJcsc7GMQFrceVckMXWHRx4ZQosUijkUx1pe2H2vQKjMdJQTUpkgeb2DUGwwp1YdUttuxkr7PQfwk45GyqGAA
+```
+
 [Machine-readable receipts with request, quote, simulation, fees and token balance changes](docs/mainnet-receipts.json).
 
 LST program: `5f7YRhNMtZxAANQQV4B78keMFGiz8gTvAHA4p3Dj3kLp`, deployment https://solscan.io/tx/4hgSvfSyjJi6xEyJpKeKb3HuC2s6XQ5LQV642XwaxQzxWrJ1idyuXtXC8scMmF8atG1UYYjM5N7dgbWC2gMvQ225. [Finalized deployment and binary hash](docs/lst-deployment-mainnet.json), [on-chain bytecode verification](docs/lst-bridge-verification-mainnet.json). Deployment alone does not prove mainnet LST deposit/redemption.

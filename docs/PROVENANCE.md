@@ -286,7 +286,7 @@ The deployed consumer surface is `liquidityxyz.fun` (Vercel project `ftl-liquidi
 - A Raydium CLMM add for the sample wallet was quoted, built (one V1 transaction, 1,082 bytes) and simulated successfully through `api.liquidityxyz.fun`, the same path the browser uses before asking the wallet to sign.
 - In a browser on `www.liquidityxyz.fun/token/solana/6Mix12…bordr`, a 0.01 SOL buy quoted 1,020.6 BORDR through Meteora DAMM v2 with minimum received and pool fee shown, and the Liquidity tab loaded all eight venues.
 
-Swaps now take the better of the direct venue router and the external Autobahn router; the browser-wallet signature itself is the one step these receipts do not cover, because it requires a human wallet approval.
+Swaps now take the better of the direct venue router and the external Autobahn router. The browser-wallet signature was then covered too: at about 00:50 Toronto the owner connected the sample wallet in a browser on www.liquidityxyz.fun, quoted a Raydium CLMM add on pool `2JtkunkYCRbe5YZuGU6kLFmNwN22Ba1pCicHoqW5Eqja`, approved it in the wallet, and it confirmed as https://solscan.io/tx/VXwJcsc7GMQFrceVckMXWHRx4ZQosUijkUx1pe2H2vQKjMdJQTUpkgeb2DUGwwp1YdUttuxkr7PQfwk45GyqGAA. That closes the feed → quote → build → simulate → wallet sign → send → confirm loop on production.
 
 ## 9. Automatic admission is the governance mechanism
 

@@ -54,6 +54,7 @@ mod liquidity;
 mod metrics;
 mod mock;
 mod path_warmer;
+pub mod platform_fee;
 pub mod prelude;
 mod prometheus_sync;
 pub mod routing;

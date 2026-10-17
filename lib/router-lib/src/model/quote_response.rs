@@ -35,6 +35,9 @@ pub struct QuoteAccount {
 pub struct PlatformFee {
     pub amount: String,
     pub fee_bps: i32,
+    /// The mint the fee is paid in: the swap's input or output mint.
+    #[serde(default)]
+    pub fee_mint: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]

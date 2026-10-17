@@ -2,6 +2,10 @@
 
 Built on the Fill.city/Mango Autobahn router, with direct recursive DBC routing, a verified LST bridge, V1 transaction construction, and a unified initialize/add/remove engine for eight AMM adapters. Upstream attribution and original documentation follow below.
 
+## Platform fee
+
+Every swap the router builds charges 0.1% (10 bps), paid in kind to fee owner `Gp6tbJ5pLZfez5xGG42tCqvzf37AdUELyo9amS8mTLdz`, and [`tools/fee-burn`](tools/fee-burn/README.md) buys FR28 (`Fr28jEWz2msSCKLaHzus2nCKrwqbpTx2EyDYtsVVpump`) with the proceeds and burns it. Quotes report the gross input, the net output and `platformFee`. The fee rules, fee accounts and mainnet simulation evidence are in [the crank's README](tools/fee-burn/README.md).
+
 ## Mainnet execution receipts
 
 These are actual funded Solana mainnet transactions, not simulation signatures. Every one of the eight LP venues now has a confirmed add and remove on mainnet; PumpSwap, Meteora DAMM v1 and DAMM v2 also have a confirmed pool initialize. All receipts were quoted and built through the FTL HTTP API → Rust router HTTP API (deployed at `liquidityxyz-router.fly.dev`) → LiquidityEngine, signed by the sample wallet `331nEBz4i3XjyaUHVyHnpw9xBoW7D6P1qMPnUPd76Mth`, and broadcast through the FTL RPC proxy. The FTL HTTP service ran on the development host; the browser-wallet signing flow is still not covered by these receipts.

@@ -7,7 +7,7 @@ use axum::{extract::Form, http::header::HeaderMap, routing, Json, Router};
 use router_lib::model::quote_request::QuoteRequest;
 use router_lib::model::transaction_version::TransactionVersion;
 use super::transaction_v1;
-use router_lib::model::quote_response::{QuoteAccount, QuoteResponse};
+use router_lib::model::quote_response::{PlatformFee, QuoteAccount, QuoteResponse};
 use router_lib::model::swap_request::{SwapForm, SwapRequest};
 use router_lib::model::swap_response::{InstructionResponse, SwapIxResponse, SwapResponse, TransactionConfig};
 use serde_json::Value;
@@ -24,6 +24,7 @@ use tower_http::cors::{AllowHeaders, AllowMethods, Any, CorsLayer};
 use crate::alt::alt_optimizer;
 use crate::ix_builder::SwapInstructionsBuilder;
 use crate::liquidity::{LiquidityProvider, LiquidityProviderArcRw};
+use crate::platform_fee::{self, FeeLeg, FeeSide};
 use crate::routing_types::Route;
 use crate::server::alt_provider::AltProvider;
 use crate::server::hash_provider::HashProvider;
@@ -176,15 +177,18 @@ impl HttpServer {
         let output_mint = Pubkey::from_str(&input.output_mint)?;
         let swap_mode = input.swap_mode.or(input.mode).unwrap_or_default();
         let mut max_accounts = input.max_accounts.unwrap_or(64) as usize;
+        let fee_side = platform_fee::fee_side(&input_mint, &output_mint, swap_mode);
+        let route_amount = platform_fee::route_amount(fee_side, swap_mode, input.amount);
 
         let route = loop {
             let route_candidate = route_provider.best_quote(
                 input_mint,
                 output_mint,
-                input.amount,
+                route_amount,
                 max_accounts,
                 swap_mode,
             )?;
+            let fee = platform_fee::leg(fee_side, swap_mode, input.amount, &route_candidate)?;
 
             let built = Self::build_swap_tx(
                 address_lookup_table_addresses.clone(),
@@ -200,13 +204,14 @@ impl HttpServer {
                 swap_mode,
                 DEFAULT_COMPUTE_UNIT_PRICE_MICRO_LAMPORTS,
                 input.transaction_version,
+                Some(fee),
             )
             .await?;
 
             let tx_size = built.bytes.len();
             let accounts_count = built.accounts_count;
             if accounts_count <= MAX_ACCOUNTS_PER_TX && tx_size <= input.transaction_version.max_size() {
-                break Ok(route_candidate);
+                break Ok((route_candidate, fee));
             } else if max_accounts >= 10 {
                 warn!("TX too big ({tx_size} bytes, {accounts_count} accounts), retrying with fewer accounts; max_accounts was {max_accounts}..");
                 max_accounts -= 5;
@@ -217,12 +222,15 @@ impl HttpServer {
             }
         };
 
-        let route: Route = route?;
+        let (route, fee): (Route, FeeLeg) = route?;
 
         Self::log_repriced_amount(live_account_provider, reprice_probability, &route);
 
+        // Users see what they spend and receive: the fee is out of the input
+        // (or added to it for exact-out) or out of the output.
+        let (in_amount, out_amount) = platform_fee::user_amounts(&route, &fee)?;
         let other_amount_threshold = amount_threshold(
-            if swap_mode == SwapMode::ExactOut { route.in_amount } else { route.out_amount },
+            if swap_mode == SwapMode::ExactOut { in_amount } else { out_amount },
             input.slippage_bps,
             swap_mode == SwapMode::ExactOut,
         )?;
@@ -261,13 +269,17 @@ impl HttpServer {
         let context_slot = route.slot;
         let json_response = serde_json::json!(QuoteResponse {
             input_mint: input_mint.to_string(),
-            in_amount: Some(route.in_amount.to_string()),
+            in_amount: Some(in_amount.to_string()),
             output_mint: output_mint.to_string(),
-            out_amount: route.out_amount.to_string(),
+            out_amount: out_amount.to_string(),
             other_amount_threshold: other_amount_threshold.to_string(),
             swap_mode: swap_mode.to_string(),
             slippage_bps: input.slippage_bps as i32,
-            platform_fee: None, // TODO
+            platform_fee: Some(PlatformFee {
+                amount: fee.amount.to_string(),
+                fee_bps: platform_fee::FEE_BPS as i32,
+                fee_mint: Some(fee.mint.to_string()),
+            }),
             price_impact_pct: route
                 .price_impact_bps
                 .map(|bps| (bps as f64 / 100.0).to_string()),
@@ -298,22 +310,26 @@ impl HttpServer {
         Json(input): Json<SwapRequest>,
     ) -> Result<Json<Value>, AppError> {
         if input.as_legacy_transaction { return Err(anyhow::anyhow!("Legacy transactions are unsupported; request transactionVersion 0 or 1").into()); }
-        let route = route_provider.try_from(&input.quote_response)?;
         let swap_mode: SwapMode = SwapMode::from_str(&input.quote_response.swap_mode)
             .map_err(|_| anyhow::Error::msg("Invalid SwapMode"))?;
+        let fee_side = quoted_fee_side(&input.quote_response, swap_mode)?;
+        let route = route_provider.try_from(&platform_fee::hop_quote(
+            &input.quote_response,
+            fee_side,
+            swap_mode,
+        )?)?;
+        let threshold: u64 = input.quote_response.other_amount_threshold.parse()?;
         let route = refresh_before_build(
             route,
             live_account_provider,
             swap_mode,
-            input.quote_response.other_amount_threshold.parse()?,
+            threshold,
             input.quote_response.slippage_bps,
         )?;
         // Exact-out still uses the executor's exact-input CPI chaining. Spend the
         // freshly required amount, never the user's entire maximum by default.
-        let build_threshold = match swap_mode {
-            SwapMode::ExactIn => input.quote_response.other_amount_threshold.clone(),
-            SwapMode::ExactOut => route.in_amount.to_string(),
-        };
+        let (fee, build_threshold) =
+            charge_fresh_route(fee_side, swap_mode, &input.quote_response, &route, threshold)?;
 
         let compute_unit_price_micro_lamports = match input.compute_unit_price_micro_lamports {
             Some(price) => price,
@@ -330,10 +346,11 @@ impl HttpServer {
             input.wrap_and_unwrap_sol,
             input.auto_create_out_ata,
             input.quote_response.slippage_bps,
-            build_threshold,
+            build_threshold.to_string(),
             swap_mode,
             compute_unit_price_micro_lamports,
             input.transaction_version,
+            Some(fee),
         )
         .await?;
 
@@ -402,6 +419,7 @@ impl HttpServer {
         swap_mode: SwapMode,
         compute_unit_price_micro_lamports: u64,
         transaction_version: TransactionVersion,
+        fee: Option<FeeLeg>,
     ) -> Result<BuiltSwapTransaction, AppError> {
         let wallet_pk = Pubkey::from_str(&wallet_pk)?;
 
@@ -413,6 +431,7 @@ impl HttpServer {
             slippage_bps,
             other_amount_threshold.parse()?,
             swap_mode,
+            fee,
         )?;
 
         let priority_fee_lamports = u64::try_from(
@@ -466,20 +485,24 @@ impl HttpServer {
         if input.as_legacy_transaction { return Err(anyhow::anyhow!("Legacy transactions are unsupported; request transactionVersion 0 or 1").into()); }
         let wallet_pk = Pubkey::from_str(&input.user_public_key)?;
 
-        let route_plan = route_provider.try_from(&input.quote_response)?;
         let swap_mode: SwapMode = SwapMode::from_str(&input.quote_response.swap_mode)
             .map_err(|_| anyhow::Error::msg("Invalid SwapMode"))?;
+        let fee_side = quoted_fee_side(&input.quote_response, swap_mode)?;
+        let route_plan = route_provider.try_from(&platform_fee::hop_quote(
+            &input.quote_response,
+            fee_side,
+            swap_mode,
+        )?)?;
+        let threshold: u64 = input.quote_response.other_amount_threshold.parse()?;
         let route_plan = refresh_before_build(
             route_plan,
             live_account_provider,
             swap_mode,
-            input.quote_response.other_amount_threshold.parse()?,
+            threshold,
             input.quote_response.slippage_bps,
         )?;
-        let build_threshold = match swap_mode {
-            SwapMode::ExactIn => input.quote_response.other_amount_threshold.parse()?,
-            SwapMode::ExactOut => route_plan.in_amount,
-        };
+        let (fee, build_threshold) =
+            charge_fresh_route(fee_side, swap_mode, &input.quote_response, &route_plan, threshold)?;
 
         let compute_unit_price_micro_lamports = match input.compute_unit_price_micro_lamports {
             Some(price) => price,
@@ -494,6 +517,7 @@ impl HttpServer {
             input.quote_response.slippage_bps,
             build_threshold,
             swap_mode,
+            Some(fee),
         )?;
 
         let transaction_addresses = ixs.accounts().into_iter().collect();
@@ -768,6 +792,55 @@ fn reprice<TAccountProvider: AccountProvider + Send + Sync + 'static>(
     Ok(amount)
 }
 
+fn quoted_fee_side(quote: &QuoteResponse, mode: SwapMode) -> anyhow::Result<FeeSide> {
+    Ok(platform_fee::fee_side(
+        &Pubkey::from_str(&quote.input_mint)?,
+        &Pubkey::from_str(&quote.output_mint)?,
+        mode,
+    ))
+}
+
+/// Price the platform fee on the freshly re-quoted route and check that the
+/// user's signed bound still holds once it is taken. Returns the fee and the
+/// executor threshold: the gross minimum output for exact-in, the hop input
+/// for exact-out.
+fn charge_fresh_route(
+    side: FeeSide,
+    mode: SwapMode,
+    quote: &QuoteResponse,
+    route: &Route,
+    threshold: u64,
+) -> anyhow::Result<(FeeLeg, u64)> {
+    let requested = match mode {
+        SwapMode::ExactIn => quote.in_amount.as_ref().context("missing input")?.parse()?,
+        SwapMode::ExactOut => route.out_amount,
+    };
+    let fee = platform_fee::leg(side, mode, requested, route)?;
+    let (user_in, user_out) = platform_fee::user_amounts(route, &fee)?;
+    let build_threshold = match mode {
+        SwapMode::ExactIn => {
+            anyhow::ensure!(
+                user_out >= threshold,
+                "Quote moved outside the minimum output; request a new quote"
+            );
+            match side {
+                FeeSide::Input => threshold,
+                FeeSide::Output => threshold
+                    .checked_add(fee.amount)
+                    .context("Fee exceeds token amount range")?,
+            }
+        }
+        SwapMode::ExactOut => {
+            anyhow::ensure!(
+                user_in <= threshold,
+                "Quote moved outside the maximum input; request a new quote"
+            );
+            route.in_amount
+        }
+    };
+    Ok((fee, build_threshold))
+}
+
 /// Re-quote every hop immediately before either transaction-building endpoint.
 /// Client route amounts are a request, not an executable quote. Keep its signed
 /// intent (exact amount plus slippage bound), replace all intermediate amounts.
@@ -1001,5 +1074,309 @@ mod fresh_quote_tests {
         assert!(
             refresh_before_build(route(), Arc::new(NoAccounts), SwapMode::ExactIn, 0, 10).is_err()
         );
+    }
+}
+
+#[cfg(test)]
+mod platform_fee_endpoint_tests {
+    use super::*;
+    use crate::edge::EdgeState;
+    use crate::ix_builder::{SwapInstructionsBuilderImpl, SwapStepInstructionBuilder};
+    use crate::mock::test::{MockDexIdentifier, MockDexInterface};
+    use crate::routing_types::RouteStep;
+    use anchor_lang::Id;
+    use anchor_spl::token::Token;
+    use base64::Engine;
+    use mango_feeds_connector::chain_data::AccountData;
+    use router_lib::dex::SwapInstruction;
+    use solana_program::instruction::Instruction;
+    use solana_sdk::hash::Hash;
+    use spl_associated_token_account::get_associated_token_address;
+
+    const SOL: &str = "So11111111111111111111111111111111111111112";
+
+    struct NoAccounts;
+    impl AccountProvider for NoAccounts {
+        fn account(&self, _key: &Pubkey) -> anyhow::Result<AccountData> {
+            bail!("No accounts required by mock")
+        }
+        fn newest_processed_slot(&self) -> u64 {
+            123
+        }
+    }
+
+    struct FixedHash;
+    #[async_trait::async_trait]
+    impl HashProvider for FixedHash {
+        async fn get_latest_hash(&self) -> anyhow::Result<(Hash, u64)> {
+            Ok((Hash::new_unique(), 1_000))
+        }
+    }
+
+    struct NoAlts;
+    #[async_trait::async_trait]
+    impl AltProvider for NoAlts {
+        async fn get_alt(&self, _address: Pubkey) -> anyhow::Result<AddressLookupTableAccount> {
+            bail!("no lookup tables")
+        }
+    }
+
+    /// One mock pool per direction; quotes at the pool's fixed price.
+    struct OnePool {
+        edges: Vec<Arc<Edge>>,
+    }
+
+    impl OnePool {
+        fn new(a: Pubkey, b: Pubkey, price: f64) -> Self {
+            let edge = |input_mint, output_mint, price| {
+                Arc::new(Edge {
+                    input_mint,
+                    output_mint,
+                    id: Arc::new(MockDexIdentifier { key: Pubkey::new_unique(), input_mint, output_mint, price }),
+                    dex: Arc::new(MockDexInterface {}),
+                    accounts_needed: 0,
+                    state: RwLock::new(EdgeState::default()),
+                })
+            };
+            Self { edges: vec![edge(a, b, price), edge(b, a, 1.0 / price)] }
+        }
+        fn edge(&self, input: Pubkey, output: Pubkey) -> anyhow::Result<Arc<Edge>> {
+            self.edges
+                .iter()
+                .find(|e| e.input_mint == input && e.output_mint == output)
+                .cloned()
+                .context("no pool")
+        }
+    }
+
+    impl RouteProvider for OnePool {
+        fn prepare_pruned_edges_and_cleanup_cache(&self, _: &HashSet<Pubkey>, _: SwapMode) {}
+        fn prepare_cache_for_input_mint<F>(&self, _: Pubkey, _: u64, _: usize, _: F) -> anyhow::Result<()>
+        where
+            F: Fn(&Pubkey, &Pubkey) -> bool,
+        {
+            Ok(())
+        }
+        fn best_quote(&self, from: Pubkey, to: Pubkey, amount: u64, _: usize, mode: SwapMode) -> anyhow::Result<Route> {
+            let edge = self.edge(from, to)?;
+            let provider = Arc::new(NoAccounts) as AccountProviderView;
+            let state = edge.prepare(&provider)?;
+            let quote = match mode {
+                SwapMode::ExactIn => edge.quote(&state, &provider, amount)?,
+                SwapMode::ExactOut => edge.quote_exact_out(&state, &provider, amount)?,
+            };
+            Ok(Route {
+                input_mint: from,
+                output_mint: to,
+                in_amount: quote.in_amount,
+                out_amount: quote.out_amount,
+                price_impact_bps: None,
+                steps: vec![RouteStep {
+                    edge,
+                    in_amount: quote.in_amount,
+                    out_amount: quote.out_amount,
+                    fee_amount: 0,
+                    fee_mint: from,
+                }],
+                slot: 1,
+                accounts: None,
+            })
+        }
+        fn try_from(&self, quote: &QuoteResponse) -> anyhow::Result<Route> {
+            let info = quote.route_plan[0].swap_info.as_ref().unwrap();
+            let (from, to) = (info.input_mint.parse()?, info.output_mint.parse()?);
+            Ok(Route {
+                input_mint: quote.input_mint.parse()?,
+                output_mint: quote.output_mint.parse()?,
+                in_amount: quote.in_amount.as_ref().unwrap().parse()?,
+                out_amount: quote.out_amount.parse()?,
+                price_impact_bps: None,
+                steps: vec![RouteStep {
+                    edge: self.edge(from, to)?,
+                    in_amount: info.in_amount.parse()?,
+                    out_amount: info.out_amount.parse()?,
+                    fee_amount: 0,
+                    fee_mint: from,
+                }],
+                slot: quote.context_slot,
+                accounts: None,
+            })
+        }
+    }
+
+    struct MockHop;
+    impl SwapStepInstructionBuilder for MockHop {
+        fn build_ix(&self, wallet: &Pubkey, step: &RouteStep, _: i32, _: SwapMode, _: u64) -> anyhow::Result<SwapInstruction> {
+            let mut data = vec![9u8];
+            data.extend_from_slice(&step.in_amount.to_le_bytes());
+            Ok(SwapInstruction {
+                instruction: Instruction { program_id: step.edge.key(), accounts: vec![], data },
+                out_pubkey: get_associated_token_address(wallet, &step.edge.output_mint),
+                out_mint: step.edge.output_mint,
+                in_amount_offset: 1,
+                cu_estimate: None,
+            })
+        }
+    }
+
+    type Builder = SwapInstructionsBuilderImpl<MockHop>;
+
+    async fn quote(pool: &Arc<OnePool>, input: Pubkey, output: Pubkey, amount: u64) -> Value {
+        let request: QuoteRequest = serde_json::from_value(serde_json::json!({
+            "inputMint": input.to_string(), "outputMint": output.to_string(),
+            "amount": amount, "slippageBps": 50, "transactionVersion": "0",
+        }))
+        .unwrap();
+        let Json(value) = HttpServer::quote_handler(
+            vec![],
+            pool.clone(),
+            Arc::new(FixedHash),
+            Arc::new(NoAlts),
+            Arc::new(NoAccounts),
+            Arc::new(Builder::new(MockHop, 1)),
+            0.0,
+            Form(request),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("quote failed"))
+        .unwrap();
+        value
+    }
+
+    /// POST /swap and decode the built v0 transaction's instructions.
+    async fn swap(pool: &Arc<OnePool>, wallet: Pubkey, quote: Value) -> Vec<Instruction> {
+        let request: SwapRequest = serde_json::from_value(serde_json::json!({
+            "userPublicKey": wallet.to_string(), "transactionVersion": "0", "quoteResponse": quote,
+        }))
+        .unwrap();
+        let Json(value) = HttpServer::swap_handler(
+            vec![],
+            pool.clone(),
+            Arc::new(FixedHash),
+            Arc::new(NoAlts),
+            Arc::new(NoAccounts),
+            Arc::new(Builder::new(MockHop, 1)),
+            0.0,
+            Query(SwapForm { token: None }),
+            Json(request),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("swap failed"))
+        .unwrap();
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(value["swapTransaction"].as_str().unwrap())
+            .unwrap();
+        let tx: VersionedTransaction = bincode::deserialize(&bytes).unwrap();
+        let keys = tx.message.static_account_keys();
+        tx.message
+            .instructions()
+            .iter()
+            .map(|ix| Instruction {
+                program_id: keys[ix.program_id_index as usize],
+                accounts: ix
+                    .accounts
+                    .iter()
+                    .map(|&i| solana_program::instruction::AccountMeta::new(keys[i as usize], tx.message.is_signer(i as usize)))
+                    .collect(),
+                data: ix.data.clone(),
+            })
+            .collect()
+    }
+
+    fn charges(ixs: &[Instruction]) -> Vec<(u64, Pubkey, Pubkey)> {
+        ixs.iter()
+            .filter(|ix| ix.program_id == autobahn_executor::id() && ix.data[0] == autobahn_executor::Instructions::ChargeFees as u8)
+            .map(|ix| (u64::from_le_bytes(ix.data[1..9].try_into().unwrap()), ix.accounts[1].pubkey, ix.accounts[2].pubkey))
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn quote_output_reflects_the_input_fee_and_the_swap_charges_it() {
+        let (sol, meme) = (Pubkey::from_str(SOL).unwrap(), Pubkey::new_unique());
+        let pool = Arc::new(OnePool::new(sol, meme, 2.0));
+        let quoted = quote(&pool, sol, meme, 1_000_000_000).await;
+        assert_eq!(quoted["inAmount"], "1000000000");
+        // 0.1% of the input is taken before routing: 2 × 999,000,000, not 2 × 1,000,000,000.
+        assert_eq!(quoted["outAmount"], "1998000000");
+        assert_eq!(quoted["routePlan"][0]["swapInfo"]["inAmount"], "999000000");
+        assert_eq!(quoted["platformFee"]["amount"], "1000000");
+        assert_eq!(quoted["platformFee"]["feeBps"], 10);
+        assert_eq!(quoted["platformFee"]["feeMint"], SOL);
+
+        let wallet = Pubkey::new_unique();
+        let ixs = swap(&pool, wallet, quoted).await;
+        let wsol = get_associated_token_address(&wallet, &sol);
+        let vault = platform_fee::fee_account(&sol, &Token::id());
+        assert_eq!(charges(&ixs), vec![(1_000_000, wsol, vault)]);
+        let wrap = ixs.iter().find(|ix| ix.program_id == solana_program::system_program::id()).unwrap();
+        assert_eq!(wrap.data[4..12], 1_000_000_000u64.to_le_bytes());
+        let charge_at = ixs.iter().position(|ix| ix.program_id == autobahn_executor::id() && ix.data[0] == 4).unwrap();
+        let swap_at = ixs.iter().position(|ix| ix.program_id == autobahn_executor::id() && ix.data[0] & 15 == 1).unwrap();
+        assert!(charge_at < swap_at);
+    }
+
+    #[tokio::test]
+    async fn selling_into_sol_pays_the_fee_out_of_the_sol_received() {
+        let (sol, meme) = (Pubkey::from_str(SOL).unwrap(), Pubkey::new_unique());
+        let pool = Arc::new(OnePool::new(sol, meme, 2.0));
+        let quoted = quote(&pool, meme, sol, 2_000_000_000).await;
+        assert_eq!(quoted["inAmount"], "2000000000");
+        assert_eq!(quoted["outAmount"], "999000000");
+        assert_eq!(quoted["platformFee"]["amount"], "1000000");
+        assert_eq!(quoted["platformFee"]["feeMint"], SOL);
+        let wallet = Pubkey::new_unique();
+        let ixs = swap(&pool, wallet, quoted).await;
+        let wsol = get_associated_token_address(&wallet, &sol);
+        assert_eq!(charges(&ixs), vec![(1_000_000, wsol, platform_fee::fee_account(&sol, &Token::id()))]);
+        let swap_at = ixs.iter().position(|ix| ix.program_id == autobahn_executor::id() && ix.data[0] & 15 == 1).unwrap();
+        let charge_at = ixs.iter().position(|ix| ix.program_id == autobahn_executor::id() && ix.data[0] == 4).unwrap();
+        let close_at = ixs.iter().rposition(|ix| ix.program_id == Token::id() && ix.data[0] == 9).unwrap();
+        assert!(swap_at < charge_at && charge_at < close_at);
+    }
+
+    #[tokio::test]
+    async fn swap_instructions_carry_the_same_fee_leg() {
+        let (sol, meme) = (Pubkey::from_str(SOL).unwrap(), Pubkey::new_unique());
+        let pool = Arc::new(OnePool::new(sol, meme, 2.0));
+        let quoted = quote(&pool, sol, meme, 1_000_000_000).await;
+        let wallet = Pubkey::new_unique();
+        let request: SwapRequest = serde_json::from_value(serde_json::json!({
+            "userPublicKey": wallet.to_string(), "transactionVersion": "0", "quoteResponse": quoted,
+        }))
+        .unwrap();
+        let Json(value) = HttpServer::swap_ix_handler(
+            vec![],
+            pool.clone(),
+            Arc::new(NoAlts),
+            Arc::new(NoAccounts),
+            Arc::new(Builder::new(MockHop, 1)),
+            Query(SwapForm { token: None }),
+            Json(request),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("swap-instructions failed"))
+        .unwrap();
+        let response: SwapIxResponse = serde_json::from_value(value).unwrap();
+        let setup = response.setup_instructions.unwrap();
+        let charge = Instruction::try_from(setup.last().unwrap()).unwrap();
+        assert_eq!(
+            charges(&[charge]),
+            vec![(
+                1_000_000,
+                get_associated_token_address(&wallet, &sol),
+                platform_fee::fee_account(&sol, &Token::id())
+            )]
+        );
+    }
+
+    #[tokio::test]
+    async fn a_client_cannot_edit_the_fee_out_of_its_quote() {
+        let (sol, meme) = (Pubkey::from_str(SOL).unwrap(), Pubkey::new_unique());
+        let pool = Arc::new(OnePool::new(sol, meme, 2.0));
+        let mut quoted = quote(&pool, sol, meme, 1_000_000_000).await;
+        quoted["platformFee"] = Value::Null;
+        quoted["routePlan"][0]["swapInfo"]["inAmount"] = "1000000000".into();
+        let ixs = swap(&pool, Pubkey::new_unique(), quoted).await;
+        assert_eq!(charges(&ixs)[0].0, 1_000_000);
     }
 }

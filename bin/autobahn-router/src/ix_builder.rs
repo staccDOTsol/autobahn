@@ -1,8 +1,10 @@
+use crate::platform_fee::{self, FeeLeg, FeeSide};
 use crate::routing_types::{Route, RouteStep};
 use crate::swap::Swap;
 use anchor_lang::Id;
 use anchor_spl::associated_token::get_associated_token_address;
 use anchor_spl::token::Token;
+use anyhow::Context;
 use autobahn_executor::swap_ix::generate_swap_ix_data;
 use router_lib::dex::{AccountProviderView, SwapInstruction, SwapMode};
 use solana_program::instruction::Instruction;
@@ -17,6 +19,9 @@ const CU_BASE: u32 = 150_000;
 pub trait SwapStepInstructionBuilder {
     fn token_program(&self, _mint: &Pubkey) -> anyhow::Result<Pubkey> {
         Ok(Token::id())
+    }
+    fn mint_decimals(&self, _mint: &Pubkey) -> anyhow::Result<u8> {
+        anyhow::bail!("mint decimals unavailable")
     }
     fn build_ix(
         &self,
@@ -38,6 +43,7 @@ pub trait SwapInstructionsBuilder {
         max_slippage_bps: i32,
         other_amount_threshold: u64,
         swap_mode: SwapMode,
+        fee: Option<FeeLeg>,
     ) -> anyhow::Result<Swap>;
 }
 
@@ -54,6 +60,11 @@ impl SwapStepInstructionBuilder for SwapStepInstructionBuilderImpl {
             "unsupported mint owner"
         );
         Ok(owner)
+    }
+    fn mint_decimals(&self, mint: &Pubkey) -> anyhow::Result<u8> {
+        // Classic and Token-2022 mints share the base layout; decimals is byte 44.
+        let account = self.chain_data.account(mint)?;
+        account.account.data().get(44).copied().context("invalid mint account")
     }
     fn build_ix(
         &self,
@@ -102,6 +113,7 @@ impl<T: SwapStepInstructionBuilder> SwapInstructionsBuilder for SwapInstructions
         max_slippage_bps: i32,
         other_amount_threshold: u64,
         swap_mode: SwapMode,
+        fee: Option<FeeLeg>,
     ) -> anyhow::Result<Swap> {
         if route.steps.len() == 0 {
             anyhow::bail!("Can't generate instructions for empty route");
@@ -109,6 +121,10 @@ impl<T: SwapStepInstructionBuilder> SwapInstructionsBuilder for SwapInstructions
 
         let mut setup_instructions = vec![];
         let mut cleanup_instructions = vec![];
+        let fee = fee.filter(|fee| fee.amount > 0);
+        let input_fee = fee
+            .filter(|fee| fee.side == FeeSide::Input)
+            .map_or(0, |fee| fee.amount);
 
         let exec_program_id: Pubkey = autobahn_executor::id();
         let sol_mint: Pubkey =
@@ -121,7 +137,9 @@ impl<T: SwapStepInstructionBuilder> SwapInstructionsBuilder for SwapInstructions
             let in_amount = match swap_mode {
                 SwapMode::ExactIn => route.in_amount,
                 SwapMode::ExactOut => other_amount_threshold,
-            };
+            }
+            .checked_add(input_fee)
+            .context("Fee exceeds token amount range")?;
 
             setup_instructions.push(solana_program::system_instruction::transfer(
                 &wallet_pk,
@@ -198,15 +216,44 @@ impl<T: SwapStepInstructionBuilder> SwapInstructionsBuilder for SwapInstructions
             SwapMode::ExactOut => route.out_amount,
         };
 
+        let in_account = get_associated_token_address_with_program_id(
+            &wallet_pk,
+            &route.input_mint,
+            &self.ix_builder.token_program(&route.input_mint)?,
+        );
+
+        if let Some(fee) = fee {
+            let (source, expected_mint) = match fee.side {
+                FeeSide::Input => (in_account, route.input_mint),
+                FeeSide::Output => (
+                    *out_account_pubkeys.last().context("route has no output")?,
+                    route.output_mint,
+                ),
+            };
+            anyhow::ensure!(fee.mint == expected_mint, "fee mint is not on the route's fee side");
+            let token_program = self.ix_builder.token_program(&fee.mint)?;
+            let [create_fee_account, charge] = platform_fee::instructions(
+                wallet_pk,
+                &source,
+                &fee,
+                &token_program,
+                || self.ix_builder.mint_decimals(&fee.mint),
+            )?;
+            setup_instructions.push(create_fee_account);
+            match fee.side {
+                // After any wrap funds the input account, before the swap spends it.
+                FeeSide::Input => setup_instructions.push(charge),
+                // After the swap fills the output account, before a wSOL unwrap closes it.
+                FeeSide::Output => cleanup_instructions.insert(0, charge),
+            }
+            cu_estimate += platform_fee::FEE_CU_ESTIMATE;
+        }
+
         let swap_instruction = generate_swap_ix_data(
             min_out_amount,
             instructions.as_slice(),
             in_amount_offsets.as_slice(),
-            get_associated_token_address_with_program_id(
-                &wallet_pk,
-                &route.input_mint,
-                &self.ix_builder.token_program(&route.input_mint)?,
-            ),
+            in_account,
             out_account_pubkeys.as_slice(),
             exec_program_id,
             self.router_version,
@@ -401,6 +448,9 @@ mod tests {
         fn token_program(&self, _: &Pubkey) -> anyhow::Result<Pubkey> {
             Ok("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb".parse()?)
         }
+        fn mint_decimals(&self, _: &Pubkey) -> anyhow::Result<u8> {
+            Ok(9)
+        }
         fn build_ix(
             &self,
             wallet: &Pubkey,
@@ -470,7 +520,7 @@ mod tests {
             1,
         );
         let swap = builder
-            .build_ixs(&wallet, &route, false, true, 100, 1900, SwapMode::ExactIn)
+            .build_ixs(&wallet, &route, false, true, 100, 1900, SwapMode::ExactIn, None)
             .unwrap();
         let in_ata = get_associated_token_address_with_program_id(&wallet, &input, &token_program);
         let out_ata =
@@ -495,7 +545,7 @@ mod tests {
             1,
         );
         assert!(wrong
-            .build_ixs(&wallet, &route, false, true, 100, 1900, SwapMode::ExactIn)
+            .build_ixs(&wallet, &route, false, true, 100, 1900, SwapMode::ExactIn, None)
             .is_err());
     }
 
@@ -521,6 +571,7 @@ mod tests {
             0,
             0,
             SwapMode::ExactIn,
+            None,
         );
 
         assert!(ixs.is_err());
@@ -548,6 +599,7 @@ mod tests {
             0,
             0,
             SwapMode::ExactOut,
+            None,
         );
 
         assert!(ixs.is_err());
@@ -610,6 +662,7 @@ mod tests {
                 0,
                 0,
                 swap_mode,
+                None,
             )
             .unwrap();
 
@@ -653,6 +706,7 @@ mod tests {
                 0,
                 0,
                 SwapMode::ExactIn,
+                None,
             )
             .unwrap();
 
@@ -696,10 +750,133 @@ mod tests {
                 0,
                 0,
                 SwapMode::ExactOut,
+                None,
             )
             .unwrap();
 
         assert_eq!(0, ixs.setup_instructions.len());
         assert_eq!(0, ixs.cleanup_instructions.len());
     }
+
+    fn one_hop(input_mint: Pubkey, output_mint: Pubkey) -> Route {
+        Route {
+            input_mint,
+            output_mint,
+            in_amount: 999_000,
+            out_amount: 2000,
+            price_impact_bps: None,
+            slot: 0,
+            accounts: None,
+            steps: vec![RouteStep {
+                edge: Arc::new(Edge {
+                    input_mint,
+                    output_mint,
+                    dex: Arc::new(MockDex {}),
+                    id: Arc::new(MockId {}),
+                    accounts_needed: 1,
+                    state: Default::default(),
+                }),
+                in_amount: 999_000,
+                out_amount: 2000,
+                fee_amount: 0,
+                fee_mint: input_mint,
+            }],
+        }
+    }
+
+    fn sol() -> Pubkey {
+        Pubkey::from_str("So11111111111111111111111111111111111111112").unwrap()
+    }
+
+    #[test]
+    fn input_fee_is_wrapped_with_the_swap_and_charged_before_it() {
+        let builder = SwapInstructionsBuilderImpl::new(MockSwapStepInstructionBuilder {}, 1);
+        let wallet = Pubkey::new_unique();
+        let route = one_hop(sol(), Pubkey::new_unique());
+        let fee = FeeLeg { side: FeeSide::Input, mint: sol(), amount: 1_000 };
+        let without = builder
+            .build_ixs(&wallet, &route, true, false, 50, 1990, SwapMode::ExactIn, None)
+            .unwrap();
+        let swap = builder
+            .build_ixs(&wallet, &route, true, false, 50, 1990, SwapMode::ExactIn, Some(fee))
+            .unwrap();
+        let wsol = get_associated_token_address(&wallet, &sol());
+        let vault = platform_fee::fee_account(&sol(), &Token::id());
+        // create wSOL ATA, fund it with input plus fee, sync, create fee account, charge
+        assert_eq!(swap.setup_instructions.len(), 5);
+        assert_eq!(
+            swap.setup_instructions[1],
+            solana_program::system_instruction::transfer(&wallet, &wsol, 1_000_000)
+        );
+        assert!(swap.setup_instructions[3].accounts.iter().any(|m| m.pubkey == vault));
+        let charge = &swap.setup_instructions[4];
+        assert_eq!(charge.program_id, autobahn_executor::id());
+        assert_eq!(charge.data[0], autobahn_executor::Instructions::ChargeFees as u8);
+        assert_eq!(charge.data[1..9], 1_000u64.to_le_bytes());
+        assert_eq!(charge.accounts[1].pubkey, wsol);
+        assert_eq!(charge.accounts[1].pubkey, swap.swap_instruction.accounts[0].pubkey);
+        assert_eq!(charge.accounts[2].pubkey, vault);
+        assert_eq!(swap.cleanup_instructions.len(), 1);
+        assert_eq!(swap.cu_estimate, without.cu_estimate + platform_fee::FEE_CU_ESTIMATE);
+    }
+
+    #[test]
+    fn output_fee_is_charged_from_the_output_before_the_wsol_unwrap() {
+        let builder = SwapInstructionsBuilderImpl::new(MockSwapStepInstructionBuilder {}, 1);
+        let wallet = Pubkey::new_unique();
+        let route = one_hop(Pubkey::new_unique(), sol());
+        let fee = FeeLeg { side: FeeSide::Output, mint: sol(), amount: 2 };
+        let swap = builder
+            .build_ixs(&wallet, &route, true, false, 50, 1992, SwapMode::ExactIn, Some(fee))
+            .unwrap();
+        let wsol = get_associated_token_address(&wallet, &sol());
+        assert_eq!(swap.cleanup_instructions.len(), 2);
+        let charge = &swap.cleanup_instructions[0];
+        assert_eq!(charge.program_id, autobahn_executor::id());
+        assert_eq!(charge.accounts[1].pubkey, wsol);
+        assert_eq!(charge.accounts[2].pubkey, platform_fee::fee_account(&sol(), &Token::id()));
+        assert_eq!(swap.cleanup_instructions[1].program_id, Token::id());
+        // the executor still enforces the gross minimum the caller passed
+        assert_eq!(swap.swap_instruction.data[1..9], 1992u64.to_le_bytes());
+    }
+
+    #[test]
+    fn token_2022_fee_is_a_checked_transfer_to_the_token_2022_fee_account() {
+        let builder = SwapInstructionsBuilderImpl::new(
+            Token2022StepBuilder { wrong_output_account: false },
+            1,
+        );
+        let wallet = Pubkey::new_unique();
+        let (input, output) = (Pubkey::new_unique(), Pubkey::new_unique());
+        let token_program: Pubkey = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb".parse().unwrap();
+        let fee = FeeLeg { side: FeeSide::Input, mint: input, amount: 999 };
+        let swap = builder
+            .build_ixs(&wallet, &one_hop(input, output), false, true, 100, 1900, SwapMode::ExactIn, Some(fee))
+            .unwrap();
+        let charge = swap.setup_instructions.last().unwrap();
+        assert_eq!(charge.program_id, token_program);
+        assert_eq!(charge.data, [&[12u8][..], &999u64.to_le_bytes(), &[9]].concat());
+        assert_eq!(
+            charge.accounts[0].pubkey,
+            get_associated_token_address_with_program_id(&wallet, &input, &token_program)
+        );
+        assert_eq!(charge.accounts[2].pubkey, platform_fee::fee_account(&input, &token_program));
+    }
+
+    #[test]
+    fn zero_fees_add_nothing_and_a_fee_on_the_wrong_mint_is_refused() {
+        let builder = SwapInstructionsBuilderImpl::new(MockSwapStepInstructionBuilder {}, 1);
+        let wallet = Pubkey::new_unique();
+        let route = one_hop(Pubkey::new_unique(), Pubkey::new_unique());
+        let zero = FeeLeg { side: FeeSide::Input, mint: route.input_mint, amount: 0 };
+        let swap = builder
+            .build_ixs(&wallet, &route, false, false, 0, 1, SwapMode::ExactIn, Some(zero))
+            .unwrap();
+        assert!(swap.setup_instructions.is_empty() && swap.cleanup_instructions.is_empty());
+        let wrong = FeeLeg { side: FeeSide::Output, mint: route.input_mint, amount: 5 };
+        assert!(builder
+            .build_ixs(&wallet, &route, false, false, 0, 1, SwapMode::ExactIn, Some(wrong))
+            .is_err());
+    }
+
 }

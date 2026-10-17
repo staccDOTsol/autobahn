@@ -64,7 +64,7 @@ pub mod test {
         }
 
         fn name(&self) -> String {
-            todo!()
+            "Mock".to_string()
         }
 
         fn subscription_mode(&self) -> DexSubscriptionMode {

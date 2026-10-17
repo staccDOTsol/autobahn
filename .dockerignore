@@ -23,3 +23,4 @@ config/
 **/.git
 **/*.lz4
 **/*.so
+tools/fee-burn/node_modules
